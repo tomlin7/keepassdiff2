@@ -7,8 +7,8 @@ def main(page: ft.Page):
     page.title = "KeePassDiff - Sophisticated DB Merger"
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 0
-    page.window.width = 1200
-    page.window.height = 800
+    page.window.width = 1000
+    page.window.height = 1000
     
     # Define a modern theme
     page.theme = ft.Theme(

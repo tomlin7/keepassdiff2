@@ -1,4 +1,5 @@
 import shutil
+from datetime import datetime
 import flet as ft
 from core.comparator import Comparator
 from state.app_state import app_state
@@ -11,8 +12,58 @@ class DiffView:
         self.diff_results = []
         self.resolved_uuids = set()
         self.merger = Merger(app_state.kp_a, app_state.kp_b)
+        
+        # Save As File Picker
+        self.save_file_picker = ft.FilePicker(on_result=self.on_save_file_result)
+        self.page.overlay.append(self.save_file_picker)
+        self.pending_save_target = None
+
         self.calculate_diff()
         self.setup_ui()
+
+
+
+    def open_save_dialog(self, target_db):
+        self.pending_save_target = target_db
+        default_name = f"merged_{target_db.lower()}_{int(datetime.now().timestamp())}.kdbx"
+        self.save_file_picker.save_file(file_name=default_name, allowed_extensions=["kdbx"])
+
+    def on_save_file_result(self, e: ft.FilePickerResultEvent):
+        if not e.path:
+            return
+            
+        target_db = self.pending_save_target
+        path = e.path
+        
+        try:
+            if target_db == 'A':
+                app_state.kp_a.save(filename=path)
+            else:
+                app_state.kp_b.save(filename=path)
+                
+            snack = ft.SnackBar(ft.Text(f"Successfully saved Database {target_db} to {path}", color=ft.Colors.GREEN))
+            self.page.overlay.append(snack)
+            snack.open = True
+            self.page.update()
+            
+        except Exception as ex:
+            err_dlg = ft.AlertDialog(
+                title=ft.Text("Error"),
+                content=ft.Text(f"Failed to save: {str(ex)}"),
+            )
+            self.page.dialog = err_dlg
+            err_dlg.open = True
+            self.page.update()
+
+    # Removed old dialog methods as they are replaced by FilePicker
+    # close_dialog, finalize_save (merged into on_save_file_result)
+
+    def sort_diff_entries(self):
+        # Optional: Sort mainly by modification time? 
+        # For now just keep order or sort by title
+        self.diff_results.sort(key=lambda x: x.title or "")
+
+
 
     def calculate_diff(self):
         comparator = Comparator(app_state.kp_a, app_state.kp_b)
@@ -126,11 +177,71 @@ class DiffView:
 
         if diff.state == 'MODIFIED':
             # Side by side comparison
+
+            
+            import os
+            
+            # Use DB file modification time as requested
+            try:
+                ts_a = datetime.fromtimestamp(os.path.getmtime(app_state.db_path_a)) if app_state.db_path_a else None
+            except:
+                ts_a = None
+                
+            try:
+                ts_b = datetime.fromtimestamp(os.path.getmtime(app_state.db_path_b)) if app_state.db_path_b else None
+            except:
+                ts_b = None
+            
+            latest_is_a = False
+            latest_is_b = False
+            
+            if ts_a and ts_b:
+                if ts_a > ts_b:
+                    latest_is_a = True
+                elif ts_b > ts_a:
+                    latest_is_b = True
+            elif ts_a and not ts_b:
+                latest_is_a = True
+            elif ts_b and not ts_a:
+                latest_is_b = True
+
+            def format_ts(ts):
+                if not ts: return "Unknown"
+                return ts.strftime("%Y-%m-%d %H:%M:%S")
+
+            def create_header_content(title, title_color, ts, is_latest):
+                items = [
+                    ft.Text(title, weight=ft.FontWeight.BOLD, color=title_color),
+                    ft.Text(f"Modified: {format_ts(ts)}", size=12, color=ft.Colors.GREY_400)
+                ]
+                
+                if is_latest:
+                    items.append(
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Icon(ft.Icons.STAR, size=14, color=ft.Colors.WHITE),
+                                ft.Text("LATEST VERSION", size=10, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+                            ], alignment=ft.MainAxisAlignment.START, spacing=4, tight=True),
+                            bgcolor=ft.Colors.GREEN_600,
+                            padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                            border_radius=4,
+                        )
+                    )
+                return items
+
+            header_a = ft.Column(
+                create_header_content("Database A (Current)", ft.Colors.INDIGO_200, ts_a, latest_is_a)
+            )
+            
+            header_b = ft.Column(
+                create_header_content("Database B (Incoming)", ft.Colors.TEAL_200, ts_b, latest_is_b)
+            )
+
             self.details_container.controls.append(
                 ft.Row([
                     ft.Text("Field", width=100, weight=ft.FontWeight.BOLD),
-                    ft.Text("Database A (Current)", expand=True, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_200),
-                    ft.Text("Database B (Incoming)", expand=True, weight=ft.FontWeight.BOLD, color=ft.Colors.TEAL_200),
+                    ft.Container(content=header_a, expand=True),
+                    ft.Container(content=header_b, expand=True),
                 ])
             )
             self.details_container.controls.append(ft.Divider())
@@ -161,6 +272,7 @@ class DiffView:
                 ft.Row([
                     ft.ElevatedButton("Keep Current (A)", icon=ft.Icons.CHECK_CIRCLE_OUTLINE, on_click=lambda _: self.resolve_conflict(diff, 'A')),
                     ft.ElevatedButton("Accept Incoming (B)", icon=ft.Icons.ARROW_CIRCLE_RIGHT_OUTLINED, on_click=lambda _: self.resolve_conflict(diff, 'B')),
+                    ft.ElevatedButton("Keep Both", icon=ft.Icons.COPY_ALL, on_click=lambda _: self.resolve_conflict(diff, 'BOTH')),
                 ])
             )
 
@@ -249,30 +361,7 @@ class DiffView:
         self.page.snack_bar.open = True
         self.page.update()
 
-    def save_db(self, e):
-        try:
-            # Backup
-            if app_state.db_path_a:
-                shutil.copy2(app_state.db_path_a, app_state.db_path_a + ".bak")
 
-            # Save A
-            app_state.kp_a.save()
-            
-            dlg = ft.AlertDialog(
-                title=ft.Text("Success"),
-                content=ft.Text("Database A has been backed up (.bak) and saved successfully!"),
-            )
-            self.page.dialog = dlg
-            dlg.open = True
-            self.page.update()
-        except Exception as ex:
-             dlg = ft.AlertDialog(
-                title=ft.Text("Error"),
-                content=ft.Text(f"Failed to save: {str(ex)}"),
-            )
-             self.page.dialog = dlg
-             dlg.open = True
-             self.page.update()
 
     @property
     def view(self):
@@ -289,7 +378,14 @@ class DiffView:
                                 ft.PopupMenuItem(text="Accept All Incoming (Update/Import)", on_click=self.bulk_accept_incoming),
                             ]
                         ),
-                        ft.IconButton(ft.Icons.SAVE, tooltip="Save Merged DB Changes to A", on_click=self.save_db)
+                        ft.PopupMenuButton(
+                            icon=ft.Icons.SAVE,
+                            tooltip="Save Options",
+                            items=[
+                                ft.PopupMenuItem(text="Save A as...", on_click=lambda _: self.open_save_dialog('A')),
+                                ft.PopupMenuItem(text="Save B as...", on_click=lambda _: self.open_save_dialog('B')),
+                            ]
+                        )
                     ]
                 ),
                 self.layout

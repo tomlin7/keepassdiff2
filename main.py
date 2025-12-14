@@ -4,7 +4,7 @@ from views.diff_view import DiffView
 from state.app_state import app_state
 
 def main(page: ft.Page):
-    page.title = "KeePassDiff - Sophisticated DB Merger"
+    page.title = "KeePassDiff - Diff & Merge"
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 0
     page.window.width = 1000

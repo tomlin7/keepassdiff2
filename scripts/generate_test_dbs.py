@@ -1,5 +1,6 @@
 import os
 import shutil
+import time
 from pykeepass import create_database, PyKeePass
 
 def generate_dbs():
@@ -27,6 +28,8 @@ def generate_dbs():
     
     kp_a.save()
     print(f"Created Database A at {path_a} (Password: '{password}')")
+
+    time.sleep(5)
 
     # --- Create Database B (Clone of A + Modifications) ---
     # Copy A to B so UUIDs match

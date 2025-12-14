@@ -15,6 +15,9 @@ class Merger:
             if action == 'B': # Accept Incoming
                 self._update_fields(diff_entry.entry_a, diff_entry.entry_b)
                 # print(f"Updated entry {diff_entry.title} with values from B")
+            elif action == 'BOTH': # Keep Both
+                # Import B as a new entry, possibly distinguishing the title
+                self._import_entry(diff_entry.entry_b, title_override=f"{diff_entry.title} (Incoming)")
         
         elif diff_entry.state == 'ONLY_IN_A':
             if action == 'DELETE_A':
@@ -30,9 +33,12 @@ class Merger:
         fields = ['title', 'username', 'password', 'url', 'notes']
         for field in fields:
             val = getattr(source, field)
+            # PyKeePass setters don't like None, sanitize to empty string
+            if val is None:
+                val = ""
             setattr(target, field, val)
 
-    def _import_entry(self, source_entry: Entry):
+    def _import_entry(self, source_entry: Entry, title_override=None):
         # 1. Find or create group path
         group_path = self._get_group_path(source_entry.group)
         target_group = self._ensure_group_path(group_path)
@@ -40,11 +46,11 @@ class Merger:
         # 2. Add entry
         self.kp_a.add_entry(
             destination_group=target_group,
-            title=source_entry.title,
-            username=source_entry.username,
-            password=source_entry.password,
-            url=source_entry.url,
-            notes=source_entry.notes,
+            title=title_override if title_override is not None else (source_entry.title or ""),
+            username=source_entry.username or "",
+            password=source_entry.password or "",
+            url=source_entry.url or "",
+            notes=source_entry.notes or "",
             tags=source_entry.tags,
             expiry_time=source_entry.expiry_time,
             icon=source_entry.icon
@@ -55,7 +61,7 @@ class Merger:
         current = group
         while current:
             path.insert(0, current.name)
-            current = current.parent_group
+            current = current.parentgroup
         return path # e.g. ['Root', 'Internet']
 
     def _ensure_group_path(self, path_names):

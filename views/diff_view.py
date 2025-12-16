@@ -55,11 +55,8 @@ class DiffView:
             err_dlg.open = True
             self.page.update()
 
-    # Removed old dialog methods as they are replaced by FilePicker
-    # close_dialog, finalize_save (merged into on_save_file_result)
-
     def sort_diff_entries(self):
-        # Optional: Sort mainly by modification time? 
+        # TODO: Sort mainly by modification time? 
         # For now just keep order or sort by title
         self.diff_results.sort(key=lambda x: x.title or "")
 

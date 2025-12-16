@@ -253,12 +253,19 @@ class DiffView:
                 is_diff = field in diff.diffs
                 bg_color = ft.Colors.WHITE10 if is_diff else ft.Colors.TRANSPARENT
                 
+                if field == 'password':
+                    control_a = ft.TextField(value=str(val_a), password=True, can_reveal_password=True, read_only=True, expand=True)
+                    control_b = ft.TextField(value=str(val_b), password=True, can_reveal_password=True, read_only=True, expand=True)
+                else:
+                    control_a = ft.Text(str(val_a), expand=True, selectable=True)
+                    control_b = ft.Text(str(val_b), expand=True, selectable=True)
+
                 self.details_container.controls.append(
                     ft.Container(
                         content=ft.Row([
                             ft.Text(field.capitalize(), width=100),
-                            ft.Text(str(val_a), expand=True, selectable=True),
-                            ft.Text(str(val_b), expand=True, selectable=True),
+                            control_a,
+                            control_b,
                         ]),
                         bgcolor=bg_color,
                         padding=5,
@@ -284,10 +291,16 @@ class DiffView:
              
             for field in fields:
                 val_a = getattr(diff.entry_a, field)
+                
+                if field == 'password':
+                    control_a = ft.TextField(value=str(val_a), password=True, can_reveal_password=True, read_only=True, expand=True)
+                else:
+                    control_a = ft.Text(str(val_a), selectable=True, expand=True)
+
                 self.details_container.controls.append(
                     ft.Row([
                         ft.Text(field.capitalize(), width=100, weight=ft.FontWeight.BOLD),
-                        ft.Text(str(val_a), selectable=True)
+                        control_a
                     ])
                 )
             
@@ -307,10 +320,16 @@ class DiffView:
             
             for field in fields:
                 val_b = getattr(diff.entry_b, field)
+                
+                if field == 'password':
+                    control_b = ft.TextField(value=str(val_b), password=True, can_reveal_password=True, read_only=True, expand=True)
+                else:
+                    control_b = ft.Text(str(val_b), selectable=True, expand=True)
+
                 self.details_container.controls.append(
                     ft.Row([
                         ft.Text(field.capitalize(), width=100, weight=ft.FontWeight.BOLD),
-                        ft.Text(str(val_b), selectable=True)
+                        control_b
                     ])
                 )
 

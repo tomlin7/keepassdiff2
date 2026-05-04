@@ -8,11 +8,11 @@ class WelcomeView:
         
     def setup_ui(self):
         # File pickers
-        self.file_picker_a = ft.FilePicker(on_result=self.pick_file_a_result)
-        self.file_picker_b = ft.FilePicker(on_result=self.pick_file_b_result)
-        self.keyfile_picker_a = ft.FilePicker(on_result=self.pick_key_a_result)
-        self.keyfile_picker_b = ft.FilePicker(on_result=self.pick_key_b_result)
-        self.page.overlay.extend([self.file_picker_a, self.file_picker_b, self.keyfile_picker_a, self.keyfile_picker_b])
+        self.file_picker_a = ft.FilePicker()
+        self.file_picker_b = ft.FilePicker()
+        self.keyfile_picker_a = ft.FilePicker()
+        self.keyfile_picker_b = ft.FilePicker()
+        # No longer adding to page.overlay as it is a service in v0.84.0
         
         # Inputs A
         self.path_field_a = ft.TextField(label="Database A Source", read_only=True, expand=True, icon=ft.Icons.FILE_OPEN)
@@ -27,29 +27,33 @@ class WelcomeView:
         self.loading = ft.ProgressBar(visible=False)
         self.error_text = ft.Text(color=ft.Colors.RED_400, visible=False)
 
-    def pick_file_a_result(self, e: ft.FilePickerResultEvent):
-        if e.files:
-            app_state.db_path_a = e.files[0].path
-            self.path_field_a.value = e.files[0].path
-            self.path_field_a.update()
+    async def pick_file_a(self, e):
+        files = await self.file_picker_a.pick_files(allowed_extensions=["kdbx"])
+        if files:
+            app_state.db_path_a = files[0].path
+            self.path_field_a.value = files[0].path
+            self.page.update()
 
-    def pick_file_b_result(self, e: ft.FilePickerResultEvent):
-        if e.files:
-            app_state.db_path_b = e.files[0].path
-            self.path_field_b.value = e.files[0].path
-            self.path_field_b.update()
+    async def pick_file_b(self, e):
+        files = await self.file_picker_b.pick_files(allowed_extensions=["kdbx"])
+        if files:
+            app_state.db_path_b = files[0].path
+            self.path_field_b.value = files[0].path
+            self.page.update()
 
-    def pick_key_a_result(self, e: ft.FilePickerResultEvent):
-        if e.files:
-            self.key_field_a.value = e.files[0].path
-            self.key_field_a.update()
+    async def pick_key_a(self, e):
+        files = await self.keyfile_picker_a.pick_files()
+        if files:
+            self.key_field_a.value = files[0].path
+            self.page.update()
 
-    def pick_key_b_result(self, e: ft.FilePickerResultEvent):
-        if e.files:
-            self.key_field_b.value = e.files[0].path
-            self.key_field_b.update()
+    async def pick_key_b(self, e):
+        files = await self.keyfile_picker_b.pick_files()
+        if files:
+            self.key_field_b.value = files[0].path
+            self.page.update()
 
-    def load_databases(self, e):
+    async def load_databases(self, e):
         self.loading.visible = True
         self.error_text.visible = False
         self.page.update()
@@ -65,7 +69,7 @@ class WelcomeView:
             app_state.load_database('B', self.pass_field_b.value, keyfile=self.key_field_b.value)
             
             # If successful, navigate
-            self.page.go("/diff")
+            await self.page.push_route("/diff")
             
         except Exception as ex:
             self.error_text.value = f"Error: {str(ex)}"
@@ -76,7 +80,6 @@ class WelcomeView:
     @property
     def view(self):
         return ft.View(
-            "/",
             controls=[
                 ft.Container(
                     content=ft.Column(
@@ -92,11 +95,11 @@ class WelcomeView:
                                         ft.Text("Database A (Base)", weight=ft.FontWeight.BOLD),
                                         ft.Row([
                                             self.path_field_a,
-                                            ft.IconButton(ft.Icons.FOLDER_OPEN, on_click=lambda _: self.file_picker_a.pick_files(allowed_extensions=["kdbx"]))
+                                            ft.IconButton(ft.Icons.FOLDER_OPEN, on_click=self.pick_file_a)
                                         ]),
                                         ft.Row([
                                             self.key_field_a,
-                                            ft.IconButton(ft.Icons.KEY, on_click=lambda _: self.keyfile_picker_a.pick_files())
+                                            ft.IconButton(ft.Icons.KEY, on_click=self.pick_key_a)
                                         ]),
                                         self.pass_field_a
                                     ]),
@@ -113,11 +116,11 @@ class WelcomeView:
                                         ft.Text("Database B (Compare)", weight=ft.FontWeight.BOLD),
                                         ft.Row([
                                             self.path_field_b,
-                                            ft.IconButton(ft.Icons.FOLDER_OPEN, on_click=lambda _: self.file_picker_b.pick_files(allowed_extensions=["kdbx"]))
+                                            ft.IconButton(ft.Icons.FOLDER_OPEN, on_click=self.pick_file_b)
                                         ]),
                                         ft.Row([
                                             self.key_field_b,
-                                            ft.IconButton(ft.Icons.KEY, on_click=lambda _: self.keyfile_picker_b.pick_files())
+                                            ft.IconButton(ft.Icons.KEY, on_click=self.pick_key_b)
                                         ]),
                                         self.pass_field_b
                                     ]),
@@ -144,9 +147,10 @@ class WelcomeView:
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                     padding=50,
-                    alignment=ft.alignment.center
+                    alignment=ft.Alignment(0, 0)
                 )
             ],
+            route="/",
             bgcolor=ft.Colors.BLUE_GREY_900,
             scroll=ft.ScrollMode.AUTO
         )

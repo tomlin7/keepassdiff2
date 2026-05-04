@@ -1,0 +1,10 @@
+[project]
+name = "keepassdiff2"
+version = "0.2.1"
+description = "A Flet-based application for comparing and merging KeePass databases with a focus on user experience and data integrity."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pykeepass>=4.0.0",
+    "flet>=0.84.0",
+]

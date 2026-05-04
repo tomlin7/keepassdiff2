@@ -14,8 +14,8 @@ class DiffView:
         self.merger = Merger(app_state.kp_a, app_state.kp_b)
         
         # Save As File Picker
-        self.save_file_picker = ft.FilePicker(on_result=self.on_save_file_result)
-        self.page.overlay.append(self.save_file_picker)
+        self.save_file_picker = ft.FilePicker()
+        # No longer adding to page.overlay as it is a service in v0.84.0
         self.pending_save_target = None
 
         self.calculate_diff()
@@ -23,18 +23,13 @@ class DiffView:
 
 
 
-    def open_save_dialog(self, target_db):
-        self.pending_save_target = target_db
+    async def open_save_dialog(self, target_db):
         default_name = f"merged_{target_db.lower()}_{int(datetime.now().timestamp())}.kdbx"
-        self.save_file_picker.save_file(file_name=default_name, allowed_extensions=["kdbx"])
-
-    def on_save_file_result(self, e: ft.FilePickerResultEvent):
-        if not e.path:
+        path = await self.save_file_picker.save_file(file_name=default_name, allowed_extensions=["kdbx"])
+        
+        if not path:
             return
             
-        target_db = self.pending_save_target
-        path = e.path
-        
         try:
             if target_db == 'A':
                 app_state.kp_a.save(filename=path)
@@ -142,7 +137,7 @@ class DiffView:
             self.diff_list.controls.append(tile)
         
         if update_ui:
-            self.diff_list.update()
+            self.page.update()
 
     def show_details(self, diff):
         self.details_container.alignment = ft.MainAxisAlignment.START
@@ -167,7 +162,7 @@ class DiffView:
                     border_radius=10
                 )
             )
-            self.details_container.update()
+            self.page.update()
             return
 
         fields = ['title', 'username', 'password', 'url', 'notes']
@@ -274,9 +269,9 @@ class DiffView:
             self.details_container.controls.append(ft.Divider())
             self.details_container.controls.append(
                 ft.Row([
-                    ft.ElevatedButton("Keep Current (A)", icon=ft.Icons.CHECK_CIRCLE_OUTLINE, on_click=lambda _: self.resolve_conflict(diff, 'A')),
-                    ft.ElevatedButton("Accept Incoming (B)", icon=ft.Icons.ARROW_CIRCLE_RIGHT_OUTLINED, on_click=lambda _: self.resolve_conflict(diff, 'B')),
-                    ft.ElevatedButton("Keep Both", icon=ft.Icons.COPY_ALL, on_click=lambda _: self.resolve_conflict(diff, 'BOTH')),
+                    ft.ElevatedButton("Keep Current (A)", icon=ft.Icons.CHECK_CIRCLE_OUTLINE, on_click=lambda _: self.page.run_task(self.resolve_conflict, diff, 'A')),
+                    ft.ElevatedButton("Accept Incoming (B)", icon=ft.Icons.ARROW_CIRCLE_RIGHT_OUTLINED, on_click=lambda _: self.page.run_task(self.resolve_conflict, diff, 'B')),
+                    ft.ElevatedButton("Keep Both", icon=ft.Icons.COPY_ALL, on_click=lambda _: self.page.run_task(self.resolve_conflict, diff, 'BOTH')),
                 ])
             )
 
@@ -304,8 +299,8 @@ class DiffView:
             self.details_container.controls.append(ft.Divider())
             self.details_container.controls.append(
                 ft.Row([
-                    ft.ElevatedButton("Keep in A", icon=ft.Icons.CHECK, on_click=lambda _: self.resolve_conflict(diff, 'KEEP_A')),
-                    ft.ElevatedButton("Delete from A", icon=ft.Icons.DELETE, style=ft.ButtonStyle(color=ft.Colors.RED), on_click=lambda _: self.resolve_conflict(diff, 'DELETE_A')),
+                    ft.ElevatedButton("Keep in A", icon=ft.Icons.CHECK, on_click=lambda _: self.page.run_task(self.resolve_conflict, diff, 'KEEP_A')),
+                    ft.ElevatedButton("Delete from A", icon=ft.Icons.DELETE, style=ft.ButtonStyle(color=ft.Colors.RED), on_click=lambda _: self.page.run_task(self.resolve_conflict, diff, 'DELETE_A')),
                 ])
             )
         
@@ -333,14 +328,14 @@ class DiffView:
             self.details_container.controls.append(ft.Divider())
             self.details_container.controls.append(
                 ft.Row([
-                     ft.ElevatedButton("Import to A", icon=ft.Icons.ADD, on_click=lambda _: self.resolve_conflict(diff, 'IMPORT_B')),
-                     ft.ElevatedButton("Ignore", icon=ft.Icons.CLOSE, on_click=lambda _: self.resolve_conflict(diff, 'IGNORE_B')),
+                     ft.ElevatedButton("Import to A", icon=ft.Icons.ADD, on_click=lambda _: self.page.run_task(self.resolve_conflict, diff, 'IMPORT_B')),
+                     ft.ElevatedButton("Ignore", icon=ft.Icons.CLOSE, on_click=lambda _: self.page.run_task(self.resolve_conflict, diff, 'IGNORE_B')),
                 ])
             )
 
-        self.details_container.update()
+        self.page.update()
 
-    def resolve_conflict(self, diff, action):
+    async def resolve_conflict(self, diff, action):
         try:
             self.merger.apply_resolution(diff, action)
             self.resolved_uuids.add(diff.uuid)
@@ -357,7 +352,7 @@ class DiffView:
             snack.open = True
             self.page.update()
 
-    def bulk_accept_incoming(self, e):
+    async def bulk_accept_incoming(self, e):
         count = 0
         for diff in self.diff_results:
             if diff.uuid in self.resolved_uuids:
@@ -379,33 +374,36 @@ class DiffView:
 
 
 
+    async def go_back(self, e):
+        await self.page.push_route("/")
+
     @property
     def view(self):
         return ft.View(
-            "/diff",
             controls=[
                 ft.AppBar(
-                    leading=ft.IconButton(ft.Icons.ARROW_BACK, on_click=lambda _: self.page.go("/")),
+                    leading=ft.IconButton(ft.Icons.ARROW_BACK, on_click=self.go_back),
                     title=ft.Text("Comparison Results"),
                     bgcolor=ft.Colors.SURFACE,
                     actions=[
                         ft.PopupMenuButton(
                             items=[
-                                ft.PopupMenuItem(text="Accept All Incoming (Update/Import)", on_click=self.bulk_accept_incoming),
+                                ft.PopupMenuItem(content=ft.Text("Accept All Incoming (Update/Import)"), on_click=self.bulk_accept_incoming),
                             ]
                         ),
                         ft.PopupMenuButton(
                             icon=ft.Icons.SAVE,
                             tooltip="Save Options",
                             items=[
-                                ft.PopupMenuItem(text="Save A as...", on_click=lambda _: self.open_save_dialog('A')),
-                                ft.PopupMenuItem(text="Save B as...", on_click=lambda _: self.open_save_dialog('B')),
+                                ft.PopupMenuItem(content=ft.Text("Save A as..."), on_click=lambda _: self.page.run_task(self.open_save_dialog, 'A')),
+                                ft.PopupMenuItem(content=ft.Text("Save B as..."), on_click=lambda _: self.page.run_task(self.open_save_dialog, 'B')),
                             ]
                         )
                     ]
                 ),
                 self.layout
             ],
+            route="/diff",
             bgcolor=ft.Colors.BLUE_GREY_900,
             padding=10
         )

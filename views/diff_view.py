@@ -17,6 +17,7 @@ class DiffView:
         self.save_file_picker = ft.FilePicker()
         # No longer adding to page.overlay as it is a service in v0.84.0
         self.pending_save_target = None
+        self.current_filter = "all"
 
         self.calculate_diff()
         self.setup_ui()
@@ -69,6 +70,22 @@ class DiffView:
             padding=10, 
             auto_scroll=False
         )
+
+        # Filter Tabs
+        self.filter_tabs = ft.Tabs(
+            selected_index=0,
+            length=5,
+            on_change=self.on_filter_change,
+            content=ft.TabBar(
+                tabs=[
+                    ft.Tab(label="All"),
+                    ft.Tab(label="Changed"),
+                    ft.Tab(label="A Only"),
+                    ft.Tab(label="B Only"),
+                    ft.Tab(label="Resolved"),
+                ],
+            )
+        )
         
         self.refresh_list(update_ui=False)
 
@@ -86,7 +103,10 @@ class DiffView:
         self.layout = ft.Row(
             controls=[
                 ft.Container(
-                    content=self.diff_list,
+                    content=ft.Column([
+                        self.filter_tabs,
+                        self.diff_list
+                    ]),
                     width=350,
                     bgcolor=ft.Colors.SURFACE,
                     border_radius=10,
@@ -101,14 +121,45 @@ class DiffView:
             expand=True
         )
 
+    def on_filter_change(self, e):
+        # In v0.84.0, e.data contains the index
+        idx = int(e.data) if e.data is not None else self.filter_tabs.selected_index
+        filters = ["all", "MODIFIED", "ONLY_IN_A", "ONLY_IN_B", "resolved"]
+        self.current_filter = filters[idx]
+        self.refresh_list()
+
     def refresh_list(self, update_ui=True):
         self.diff_list.controls.clear()
-        for diff in self.diff_results:
+        
+        # Filter and Sort
+        filtered = []
+        for d in self.diff_results:
+            is_resolved = d.uuid in self.resolved_uuids
+            if self.current_filter == "all":
+                filtered.append(d)
+            elif self.current_filter == "resolved" and is_resolved:
+                filtered.append(d)
+            elif self.current_filter == d.state and not is_resolved:
+                filtered.append(d)
+        
+        # Sort: Resolved at bottom, then by state, then by title
+        def sort_key(d):
+            is_resolved = d.uuid in self.resolved_uuids
+            # Resolved (1) or Not (0)
+            res_val = 1 if is_resolved else 0
+            # State priority: MODIFIED (0), ONLY_IN_A (1), ONLY_IN_B (2)
+            state_priority = {'MODIFIED': 0, 'ONLY_IN_A': 1, 'ONLY_IN_B': 2}.get(d.state, 3)
+            return (res_val, state_priority, d.title or "")
+            
+        filtered.sort(key=sort_key)
+
+        for diff in filtered:
             is_resolved = diff.uuid in self.resolved_uuids
             
             icon = ft.Icons.QUESTION_MARK
             color = ft.Colors.GREY
             subtitle = ""
+            trailing = None
             
             if is_resolved:
                 icon = ft.Icons.CHECK_CIRCLE
@@ -126,13 +177,30 @@ class DiffView:
                 icon = ft.Icons.EDIT
                 color = ft.Colors.ORANGE_400
                 subtitle = f"Changed: {', '.join(diff.diffs)}"
+                
+                # Directional indicator
+                if diff.ahead == 'A':
+                    trailing = ft.Container(
+                        content=ft.Text("A NEWER", size=10, weight=ft.FontWeight.BOLD),
+                        bgcolor=ft.Colors.INDIGO_700,
+                        padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                        border_radius=4
+                    )
+                elif diff.ahead == 'B':
+                    trailing = ft.Container(
+                        content=ft.Text("B NEWER", size=10, weight=ft.FontWeight.BOLD),
+                        bgcolor=ft.Colors.TEAL_700,
+                        padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                        border_radius=4
+                    )
 
             tile = ft.ListTile(
                 leading=ft.Icon(icon, color=color),
                 title=ft.Text(diff.title or "Untitled"),
                 subtitle=ft.Text(subtitle),
+                trailing=trailing,
                 on_click=lambda e, d=diff: self.show_details(d),
-                selected=False # Can track selection if needed
+                selected=False
             )
             self.diff_list.controls.append(tile)
         
@@ -184,18 +252,15 @@ class DiffView:
             except:
                 ts_b = None
             
-            latest_is_a = False
-            latest_is_b = False
+            latest_is_a = (diff.ahead == 'A')
+            latest_is_b = (diff.ahead == 'B')
             
-            if ts_a and ts_b:
+            # If ahead is None (no history match and identical mtime), use mtime as fallback
+            if diff.ahead is None and ts_a and ts_b:
                 if ts_a > ts_b:
                     latest_is_a = True
                 elif ts_b > ts_a:
                     latest_is_b = True
-            elif ts_a and not ts_b:
-                latest_is_a = True
-            elif ts_b and not ts_a:
-                latest_is_b = True
 
             def format_ts(ts):
                 if not ts: return "Unknown"

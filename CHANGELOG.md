@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file.
 - **UI & Layout Updates**:
     - Corrected `ft.View` constructor calls to reflect new argument ordering (`controls` is now positional first).
     - Replaced `PopupMenuItem(text=...)` with `PopupMenuItem(content=ft.Text(...))`.
+    - **Migrated `ft.Tabs`**: Overhauled Tabs implementation to use the new `length`, `content`, and `ft.TabBar` structure required by v0.84.0.
+    - Replaced `Tab(text=...)` with `Tab(label=...)`.
     - Migrated legacy `ft.alignment` constants to `ft.Alignment(x, y)` coordinates.
 - **Navigation Fixes**:
     - Refactored `DiffView` navigation handlers to use `self.page.run_task()` for reliable async execution from button clicks.

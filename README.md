@@ -49,6 +49,14 @@ If you:
 python main.py
 ```
 
+## Through PyPi (experimental)
+
+As of `0.2.2`, we have started with PyPi releases, but app may not be stable:
+
+```
+pip install keepassdiff2
+```
+
 ## Usage
 
 1. Select Database A
@@ -66,3 +74,4 @@ python main.py
 5. Choose which changes to merge.
 
 6. Click Save to write updates
+

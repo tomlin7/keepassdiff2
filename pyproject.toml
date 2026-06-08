@@ -8,3 +8,6 @@ dependencies = [
     "pykeepass>=4.0.0",
     "flet>=0.84.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["core*", "state*", "views*", "storage*"]

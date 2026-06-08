@@ -16,6 +16,7 @@ async def main(page: ft.Page):
             primary=ft.Colors.INDIGO_400,
             secondary=ft.Colors.TEAL_400,
             surface=ft.Colors.BLUE_GREY_900,
+            surface_container=ft.Colors.BLUE_GREY_800,
             on_surface=ft.Colors.WHITE,
         )
     )

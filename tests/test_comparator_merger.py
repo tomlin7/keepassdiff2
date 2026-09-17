@@ -175,5 +175,28 @@ class TestComparatorMerger(unittest.TestCase):
         merger.apply_resolution(diff_b, "IMPORT_B")
         self.kp_a.save()
 
+    def test_config_manager_mru(self):
+        from storage.config_manager import ConfigManager
+        cm = ConfigManager()
+        # Override file path to temp directory
+        cm.config_file = os.path.join(self.test_dir, "test_mru.json")
+        cm.data_dir = self.test_dir
+
+        self.assertIsNone(cm.get_last_directory())
+        self.assertEqual(cm.get_mru_paths(), [])
+
+        # Add path A
+        cm.add_mru_path(self.path_a)
+        self.assertEqual(cm.get_mru_paths(), [self.path_a])
+        self.assertEqual(cm.get_last_directory(), self.test_dir)
+
+        # Add path B
+        cm.add_mru_path(self.path_b)
+        self.assertEqual(cm.get_mru_paths(), [self.path_b, self.path_a])
+
+        # Add path A again (should move to top)
+        cm.add_mru_path(self.path_a)
+        self.assertEqual(cm.get_mru_paths(), [self.path_a, self.path_b])
+
 if __name__ == "__main__":
     unittest.main()

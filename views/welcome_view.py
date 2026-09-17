@@ -124,14 +124,19 @@ class WelcomeView:
                         controls=[
                             ft.Text("KeePass Diff & Merge", size=40, weight=ft.FontWeight.BOLD),
                             ft.Text("Compare and synchronize your password databases intelligently.", size=16, color=ft.Colors.GREY_400),
-                            ft.Text("Database A is your Base database. Incoming entries and updates from Database B (Compare) can be reviewed and merged into Database A.", size=13, color=ft.Colors.INDIGO_200, text_align=ft.TextAlign.CENTER),
                             ft.Divider(height=30, color=ft.Colors.TRANSPARENT),
                             
                             # Database A Section
                             ft.Card(
                                 content=ft.Container(
                                     content=ft.Column([
-                                        ft.Text("Database A (Base)", weight=ft.FontWeight.BOLD),
+                                        ft.Row(
+                                            [
+                                                ft.Text("Database A (Base)", weight=ft.FontWeight.BOLD, size=15),
+                                                ft.Text("Target database to merge changes into", size=12, color=ft.Colors.INDIGO_200, italic=True),
+                                            ],
+                                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                        ),
                                         ft.Row([
                                             self.path_field_a,
                                             ft.IconButton(ft.Icons.FOLDER_OPEN, on_click=self.pick_file_a)
@@ -146,13 +151,29 @@ class WelcomeView:
                                 )
                             ),
                             
-                            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+                            ft.Container(
+                                content=ft.Row(
+                                    [
+                                        ft.Icon(ft.Icons.MERGE_TYPE, size=18, color=ft.Colors.TEAL_400),
+                                        ft.Text("Changes from Compare (B) can be merged into Base (A)", size=12, color=ft.Colors.GREY_400),
+                                    ],
+                                    alignment=ft.MainAxisAlignment.CENTER,
+                                    spacing=8,
+                                ),
+                                padding=ft.Padding.symmetric(vertical=4),
+                            ),
 
                             # Database B Section
                             ft.Card(
                                 content=ft.Container(
                                     content=ft.Column([
-                                        ft.Text("Database B (Compare)", weight=ft.FontWeight.BOLD),
+                                        ft.Row(
+                                            [
+                                                ft.Text("Database B (Compare)", weight=ft.FontWeight.BOLD, size=15),
+                                                ft.Text("Incoming database to compare and import from", size=12, color=ft.Colors.TEAL_200, italic=True),
+                                            ],
+                                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                        ),
                                         ft.Row([
                                             self.path_field_b,
                                             ft.IconButton(ft.Icons.FOLDER_OPEN, on_click=self.pick_file_b)

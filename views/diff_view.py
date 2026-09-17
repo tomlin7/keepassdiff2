@@ -29,8 +29,15 @@ class DiffView:
         self.setup_ui()
 
     async def open_save_dialog(self, target_db):
+        import os
+        orig_path = app_state.db_path_a if target_db == "A" else app_state.db_path_b
+        base_name = (
+            os.path.splitext(os.path.basename(orig_path))[0]
+            if orig_path
+            else f"db_{target_db.lower()}"
+        )
         default_name = (
-            f"merged_{target_db.lower()}_{int(datetime.now().timestamp())}.kdbx"
+            f"{base_name}_merged_{target_db.lower()}_{int(datetime.now().timestamp())}.kdbx"
         )
         path = await self.save_file_picker.save_file(
             file_name=default_name, allowed_extensions=["kdbx"]
@@ -238,12 +245,12 @@ class DiffView:
             action_text = f"Action taken: {action}"
 
             action_labels = {
-                "A": "Kept version from Database A",
-                "B": "Accepted version from Database B",
+                "A": "Kept version from Database A (unchanged)",
+                "B": "Accepted incoming version (copied B to A)",
                 "BOTH": "Kept both versions",
                 "KEEP_A": "Kept in Database A",
                 "DELETE_A": "Deleted from Database A",
-                "IMPORT_B": "Imported from Database B",
+                "IMPORT_B": "Imported from Database B into Database A",
                 "IGNORE_B": "Ignored",
             }
 
@@ -460,13 +467,15 @@ class DiffView:
                             ft.ElevatedButton(
                                 "Keep Current (A)",
                                 icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
+                                tooltip="Keep Database A's values unchanged",
                                 on_click=lambda _: self.page.run_task(
                                     self.resolve_conflict, diff, "A"
                                 ),
                             ),
                             ft.ElevatedButton(
-                                "Accept Incoming (B)",
+                                "Accept Incoming (Copy B to A)",
                                 icon=ft.Icons.ARROW_CIRCLE_RIGHT_OUTLINED,
+                                tooltip="Copy values from Database B into Database A",
                                 on_click=lambda _: self.page.run_task(
                                     self.resolve_conflict, diff, "B"
                                 ),
@@ -474,6 +483,7 @@ class DiffView:
                             ft.ElevatedButton(
                                 "Keep Both",
                                 icon=ft.Icons.COPY_ALL,
+                                tooltip="Keep Database A version and import Database B as a new entry",
                                 on_click=lambda _: self.page.run_task(
                                     self.resolve_conflict, diff, "BOTH"
                                 ),
@@ -724,28 +734,35 @@ class DiffView:
                     title=ft.Text("Comparison Results"),
                     bgcolor=ft.Colors.SURFACE_CONTAINER,
                     actions=[
+                        ft.ElevatedButton(
+                            "Save Merged A",
+                            icon=ft.Icons.SAVE,
+                            tooltip="Save merged changes into Database A file",
+                            style=ft.ButtonStyle(
+                                bgcolor=ft.Colors.GREEN_700,
+                                color=ft.Colors.WHITE,
+                            ),
+                            on_click=lambda _: self.page.run_task(
+                                self.open_save_dialog, "A"
+                            ),
+                        ),
                         ft.PopupMenuButton(
+                            tooltip="More options",
                             items=[
                                 ft.PopupMenuItem(
                                     content=ft.Text(
-                                        "Accept All Incoming (Update/Import)"
+                                        "Accept All Incoming (Copy B to A)"
                                     ),
                                     on_click=self.bulk_accept_incoming,
                                 ),
-                            ]
-                        ),
-                        ft.PopupMenuButton(
-                            icon=ft.Icons.SAVE,
-                            tooltip="Save Options",
-                            items=[
                                 ft.PopupMenuItem(
-                                    content=ft.Text("Save A as..."),
+                                    content=ft.Text("Save Database A as..."),
                                     on_click=lambda _: self.page.run_task(
                                         self.open_save_dialog, "A"
                                     ),
                                 ),
                                 ft.PopupMenuItem(
-                                    content=ft.Text("Save B as..."),
+                                    content=ft.Text("Save Database B as..."),
                                     on_click=lambda _: self.page.run_task(
                                         self.open_save_dialog, "B"
                                     ),

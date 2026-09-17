@@ -15,14 +15,50 @@ class WelcomeView:
         # No longer adding to page.overlay as it is a service in v0.84.0
         
         # Inputs A
-        self.path_field_a = ft.TextField(label="Database A Source", read_only=True, expand=True, icon=ft.Icons.FILE_OPEN)
-        self.pass_field_a = ft.TextField(label="Password A", password=True, can_reveal_password=True, expand=True)
-        self.key_field_a = ft.TextField(label="Keyfile A (Optional)", read_only=True, expand=True, icon=ft.Icons.KEY)
+        self.path_field_a = ft.TextField(
+            label="Database A (Base)",
+            value=app_state.db_path_a or "",
+            read_only=True,
+            expand=True,
+            icon=ft.Icons.FILE_OPEN,
+        )
+        self.pass_field_a = ft.TextField(
+            label="Password A",
+            value=app_state.password_a or "",
+            password=True,
+            can_reveal_password=True,
+            expand=True,
+        )
+        self.key_field_a = ft.TextField(
+            label="Keyfile A (Optional)",
+            value=app_state.keyfile_a or "",
+            read_only=True,
+            expand=True,
+            icon=ft.Icons.KEY,
+        )
 
         # Inputs B
-        self.path_field_b = ft.TextField(label="Database B Target", read_only=True, expand=True, icon=ft.Icons.FILE_OPEN)
-        self.pass_field_b = ft.TextField(label="Password B", password=True, can_reveal_password=True, expand=True)
-        self.key_field_b = ft.TextField(label="Keyfile B (Optional)", read_only=True, expand=True, icon=ft.Icons.KEY)
+        self.path_field_b = ft.TextField(
+            label="Database B (Compare)",
+            value=app_state.db_path_b or "",
+            read_only=True,
+            expand=True,
+            icon=ft.Icons.FILE_OPEN,
+        )
+        self.pass_field_b = ft.TextField(
+            label="Password B",
+            value=app_state.password_b or "",
+            password=True,
+            can_reveal_password=True,
+            expand=True,
+        )
+        self.key_field_b = ft.TextField(
+            label="Keyfile B (Optional)",
+            value=app_state.keyfile_b or "",
+            read_only=True,
+            expand=True,
+            icon=ft.Icons.KEY,
+        )
         
         self.loading = ft.ProgressBar(visible=False)
         self.error_text = ft.Text(color=ft.Colors.RED_400, visible=False)
@@ -44,12 +80,14 @@ class WelcomeView:
     async def pick_key_a(self, e):
         files = await self.keyfile_picker_a.pick_files()
         if files:
+            app_state.keyfile_a = files[0].path
             self.key_field_a.value = files[0].path
             self.page.update()
 
     async def pick_key_b(self, e):
         files = await self.keyfile_picker_b.pick_files()
         if files:
+            app_state.keyfile_b = files[0].path
             self.key_field_b.value = files[0].path
             self.page.update()
 
@@ -86,7 +124,8 @@ class WelcomeView:
                         controls=[
                             ft.Text("KeePass Diff & Merge", size=40, weight=ft.FontWeight.BOLD),
                             ft.Text("Compare and synchronize your password databases intelligently.", size=16, color=ft.Colors.GREY_400),
-                            ft.Divider(height=40, color=ft.Colors.TRANSPARENT),
+                            ft.Text("Database A is your Base database. Incoming entries and updates from Database B (Compare) can be reviewed and merged into Database A.", size=13, color=ft.Colors.INDIGO_200, text_align=ft.TextAlign.CENTER),
+                            ft.Divider(height=30, color=ft.Colors.TRANSPARENT),
                             
                             # Database A Section
                             ft.Card(

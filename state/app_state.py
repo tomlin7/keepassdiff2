@@ -7,6 +7,8 @@ class AppState:
         self.db_path_b: str = None
         self.password_a: str = None
         self.password_b: str = None
+        self.keyfile_a: str = None
+        self.keyfile_b: str = None
         self.kp_a: PyKeePass = None
         self.kp_b: PyKeePass = None
         self.diff_result = None
@@ -20,9 +22,11 @@ class AppState:
         if side == 'A':
             self.kp_a = kp
             self.password_a = password
+            self.keyfile_a = keyfile
         else:
             self.kp_b = kp
             self.password_b = password
+            self.keyfile_b = keyfile
             
     def close_databases(self):
         self.kp_a = None

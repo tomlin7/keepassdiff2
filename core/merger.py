@@ -30,6 +30,9 @@ class Merger:
                 # print(f"Imported entry {diff_entry.title} from B")
 
     def _update_fields(self, target: Entry, source: Entry):
+        # Save history before modifying fields
+        target.save_history()
+
         fields = ['title', 'username', 'password', 'url', 'notes']
         for field in fields:
             val = getattr(source, field)
@@ -38,13 +41,34 @@ class Merger:
                 val = ""
             setattr(target, field, val)
 
+        if source.tags:
+            target.tags = source.tags
+        if source.icon:
+            target.icon = source.icon
+
+        target.expires = source.expires
+        if source.expires and source.expiry_time:
+            target.expiry_time = source.expiry_time
+
+        if source.mtime:
+            target.mtime = source.mtime
+
+        if hasattr(source, 'custom_properties') and source.custom_properties:
+            for k, v in source.custom_properties.items():
+                target.set_custom_property(k, v)
+
     def _import_entry(self, source_entry: Entry, title_override=None):
+        import copy
+
         # 1. Find or create group path
         group_path = self._get_group_path(source_entry.group)
         target_group = self._ensure_group_path(group_path)
         
-        # 2. Add entry
-        self.kp_a.add_entry(
+        # 2. Add entry with force_creation=True (fixes #16)
+        # Only set expiry_time if the entry actually expires (fixes #8)
+        expiry_time = source_entry.expiry_time if source_entry.expires else None
+
+        new_entry = self.kp_a.add_entry(
             destination_group=target_group,
             title=title_override if title_override is not None else (source_entry.title or ""),
             username=source_entry.username or "",
@@ -52,9 +76,42 @@ class Merger:
             url=source_entry.url or "",
             notes=source_entry.notes or "",
             tags=source_entry.tags,
-            expiry_time=source_entry.expiry_time,
-            icon=source_entry.icon
+            expiry_time=expiry_time,
+            icon=source_entry.icon,
+            force_creation=True
         )
+
+        # Fix #8: Ensure expires flag matches source
+        new_entry.expires = source_entry.expires
+        if source_entry.expires and source_entry.expiry_time:
+            new_entry.expiry_time = source_entry.expiry_time
+
+        # Fix #16: Preserve source UUID unless title was explicitly overridden (Keep Both)
+        if title_override is None:
+            new_entry.uuid = source_entry.uuid
+
+        # Fix #11: Preserve creation, modification, and access timestamps
+        if source_entry.ctime:
+            new_entry.ctime = source_entry.ctime
+        if source_entry.mtime:
+            new_entry.mtime = source_entry.mtime
+        if source_entry.atime:
+            new_entry.atime = source_entry.atime
+
+        # Fix #16: Preserve entry history
+        hist_elem = source_entry._element.find('History')
+        if hist_elem is not None:
+            existing_h = new_entry._element.find('History')
+            if existing_h is not None:
+                new_entry._element.remove(existing_h)
+            new_entry._element.append(copy.deepcopy(hist_elem))
+
+        # Preserve custom properties
+        if hasattr(source_entry, 'custom_properties') and source_entry.custom_properties:
+            for k, v in source_entry.custom_properties.items():
+                new_entry.set_custom_property(k, v)
+
+        return new_entry
 
     def _get_group_path(self, group: Group):
         path = []

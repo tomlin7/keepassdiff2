@@ -69,9 +69,12 @@ class DiffView:
                 title=ft.Text("Error"),
                 content=ft.Text(f"Failed to save: {str(ex)}"),
             )
-            self.page.dialog = err_dlg
-            err_dlg.open = True
-            self.page.update()
+            if hasattr(self.page, "show_dialog"):
+                self.page.show_dialog(err_dlg)
+            else:
+                self.page.dialog = err_dlg
+                err_dlg.open = True
+                self.page.update()
 
     def sort_diff_entries(self):
         # TODO: Sort mainly by modification time?
@@ -921,12 +924,16 @@ class DiffView:
             self.page.update()
 
     def close_dialog(self, e):
-        if self.page.dialog:
+        if hasattr(self.page, "pop_dialog"):
+            self.page.pop_dialog()
+        elif self.page.dialog:
             self.page.dialog.open = False
             self.page.update()
 
     async def confirm_discard_and_exit(self, e):
-        if self.page.dialog:
+        if hasattr(self.page, "pop_dialog"):
+            self.page.pop_dialog()
+        elif self.page.dialog:
             self.page.dialog.open = False
             self.page.update()
         self.has_unsaved_changes = False
@@ -950,9 +957,12 @@ class DiffView:
                 ],
                 actions_alignment=ft.MainAxisAlignment.END,
             )
-            self.page.dialog = dlg
-            dlg.open = True
-            self.page.update()
+            if hasattr(self.page, "show_dialog"):
+                self.page.show_dialog(dlg)
+            else:
+                self.page.dialog = dlg
+                dlg.open = True
+                self.page.update()
         else:
             await self.page.push_route("/")
 

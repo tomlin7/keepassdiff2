@@ -1,5 +1,7 @@
+import os
 import flet as ft
 from state.app_state import app_state
+from storage.config_manager import config_manager
 
 class WelcomeView:
     def __init__(self, page: ft.Page):
@@ -59,22 +61,83 @@ class WelcomeView:
             expand=True,
             icon=ft.Icons.KEY,
         )
+
+        # MRU History buttons
+        self.mru_button_a = ft.PopupMenuButton(
+            icon=ft.Icons.HISTORY,
+            tooltip="Recent Databases",
+            items=self._build_mru_items("A"),
+        )
+        self.mru_button_b = ft.PopupMenuButton(
+            icon=ft.Icons.HISTORY,
+            tooltip="Recent Databases",
+            items=self._build_mru_items("B"),
+        )
         
         self.loading = ft.ProgressBar(visible=False)
         self.error_text = ft.Text(color=ft.Colors.RED_400, visible=False)
 
+    def _build_mru_items(self, side: str):
+        paths = config_manager.get_mru_paths()
+        if not paths:
+            return [
+                ft.PopupMenuItem(
+                    content=ft.Text("No recent databases", italic=True),
+                    disabled=True,
+                )
+            ]
+        items = []
+        for p in paths:
+            file_name = os.path.basename(p)
+            items.append(
+                ft.PopupMenuItem(
+                    content=ft.Column(
+                        [
+                            ft.Text(file_name, weight=ft.FontWeight.BOLD),
+                            ft.Text(p, size=11, color=ft.Colors.GREY_400),
+                        ],
+                        spacing=2,
+                    ),
+                    on_click=lambda _, path=p, s=side: self._select_mru(s, path),
+                )
+            )
+        return items
+
+    def _select_mru(self, side: str, path: str):
+        if side == "A":
+            app_state.db_path_a = path
+            self.path_field_a.value = path
+        else:
+            app_state.db_path_b = path
+            self.path_field_b.value = path
+        self.page.update()
+
+    def _refresh_mru_menus(self):
+        self.mru_button_a.items = self._build_mru_items("A")
+        self.mru_button_b.items = self._build_mru_items("B")
+
     async def pick_file_a(self, e):
-        files = await self.file_picker_a.pick_files(allowed_extensions=["kdbx"])
+        init_dir = config_manager.get_last_directory()
+        files = await self.file_picker_a.pick_files(
+            allowed_extensions=["kdbx"], initial_directory=init_dir
+        )
         if files:
             app_state.db_path_a = files[0].path
             self.path_field_a.value = files[0].path
+            config_manager.add_mru_path(files[0].path)
+            self._refresh_mru_menus()
             self.page.update()
 
     async def pick_file_b(self, e):
-        files = await self.file_picker_b.pick_files(allowed_extensions=["kdbx"])
+        init_dir = config_manager.get_last_directory()
+        files = await self.file_picker_b.pick_files(
+            allowed_extensions=["kdbx"], initial_directory=init_dir
+        )
         if files:
             app_state.db_path_b = files[0].path
             self.path_field_b.value = files[0].path
+            config_manager.add_mru_path(files[0].path)
+            self._refresh_mru_menus()
             self.page.update()
 
     async def pick_key_a(self, e):
@@ -105,6 +168,9 @@ class WelcomeView:
             
             # Load B
             app_state.load_database('B', self.pass_field_b.value, keyfile=self.key_field_b.value)
+            
+            config_manager.add_mru_path(app_state.db_path_a)
+            config_manager.add_mru_path(app_state.db_path_b)
             
             # If successful, navigate
             await self.page.push_route("/diff")
@@ -139,11 +205,12 @@ class WelcomeView:
                                         ),
                                         ft.Row([
                                             self.path_field_a,
-                                            ft.IconButton(ft.Icons.FOLDER_OPEN, on_click=self.pick_file_a)
+                                            ft.IconButton(ft.Icons.FOLDER_OPEN, tooltip="Browse Database A", on_click=self.pick_file_a),
+                                            self.mru_button_a,
                                         ]),
                                         ft.Row([
                                             self.key_field_a,
-                                            ft.IconButton(ft.Icons.KEY, on_click=self.pick_key_a)
+                                            ft.IconButton(ft.Icons.KEY, tooltip="Browse Keyfile A", on_click=self.pick_key_a)
                                         ]),
                                         self.pass_field_a
                                     ]),
@@ -176,7 +243,8 @@ class WelcomeView:
                                         ),
                                         ft.Row([
                                             self.path_field_b,
-                                            ft.IconButton(ft.Icons.FOLDER_OPEN, on_click=self.pick_file_b)
+                                            ft.IconButton(ft.Icons.FOLDER_OPEN, tooltip="Browse Database B", on_click=self.pick_file_b),
+                                            self.mru_button_b,
                                         ]),
                                         ft.Row([
                                             self.key_field_b,

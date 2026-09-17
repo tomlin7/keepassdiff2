@@ -1,5 +1,6 @@
 # biscuit
 data/
+storage/data/*.json
 extensions/*
 
 # nuitka

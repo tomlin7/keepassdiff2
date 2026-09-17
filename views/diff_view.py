@@ -113,22 +113,32 @@ class DiffView:
         self.details_container = ft.Column(
             expand=True,
             scroll=ft.ScrollMode.AUTO,
-            controls=[
-                ft.Text(
-                    "Select an item to view details",
-                    italic=True,
-                    color=ft.Colors.GREY_500,
-                )
-            ],
-            alignment=ft.MainAxisAlignment.CENTER,
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            controls=[],
+            alignment=ft.MainAxisAlignment.START,
+            horizontal_alignment=ft.CrossAxisAlignment.START,
         )
 
         self.layout = ft.Container(
             content=ft.Row(
                 controls=[
                     ft.Container(
-                        content=ft.Column([self.filter_tabs, self.diff_list]),
+                        content=ft.Column(
+                            [
+                                ft.ListTile(
+                                    leading=ft.Icon(
+                                        ft.Icons.DASHBOARD, color=ft.Colors.INDIGO_300
+                                    ),
+                                    title=ft.Text(
+                                        "Overview Dashboard",
+                                        weight=ft.FontWeight.BOLD,
+                                    ),
+                                    on_click=lambda _: self.show_overview(),
+                                ),
+                                ft.Divider(height=1),
+                                self.filter_tabs,
+                                self.diff_list,
+                            ]
+                        ),
                         width=350,
                         bgcolor=ft.Colors.SURFACE_CONTAINER,
                         border_radius=10,
@@ -143,6 +153,8 @@ class DiffView:
             padding=10,
             expand=True,
         )
+
+        self.show_overview()
 
     def on_filter_change(self, e):
         # In v0.84.0, e.data contains the index
@@ -232,6 +244,216 @@ class DiffView:
         if update_ui:
             self.page.update()
 
+    def show_overview(self):
+        self.details_container.alignment = ft.MainAxisAlignment.START
+        self.details_container.horizontal_alignment = ft.CrossAxisAlignment.START
+        self.details_container.controls.clear()
+
+        import os
+
+        path_a = app_state.db_path_a or "Unknown"
+        path_b = app_state.db_path_b or "Unknown"
+        name_a = os.path.basename(path_a)
+        name_b = os.path.basename(path_b)
+
+        total_a = len(app_state.kp_a.entries) if app_state.kp_a else 0
+        total_b = len(app_state.kp_b.entries) if app_state.kp_b else 0
+
+        modified_entries = [d for d in self.diff_results if d.state == "MODIFIED"]
+        only_a_entries = [d for d in self.diff_results if d.state == "ONLY_IN_A"]
+        only_b_entries = [d for d in self.diff_results if d.state == "ONLY_IN_B"]
+
+        a_newer = sum(1 for d in modified_entries if d.ahead == "A")
+        b_newer = sum(1 for d in modified_entries if d.ahead == "B")
+
+        resolved_count = len(self.resolved_uuids)
+        total_diffs = len(self.diff_results)
+
+        # Overview Header
+        self.details_container.controls.append(
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.DASHBOARD, size=28, color=ft.Colors.INDIGO_400),
+                    ft.Text("Database Comparison Overview", size=24, weight=ft.FontWeight.BOLD),
+                ],
+                tight=True,
+            )
+        )
+        self.details_container.controls.append(ft.Divider())
+
+        # Sync status banner
+        if total_diffs == 0:
+            status_banner = ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.CHECK_CIRCLE, color=ft.Colors.GREEN, size=24),
+                        ft.Text(
+                            "Databases are completely in sync! No differences found.",
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.GREEN,
+                            size=15,
+                        ),
+                    ]
+                ),
+                bgcolor=ft.Colors.WHITE10,
+                padding=15,
+                border_radius=8,
+                border=ft.Border.all(1, ft.Colors.GREEN_800),
+            )
+        elif resolved_count == total_diffs:
+            status_banner = ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.TASK_ALT, color=ft.Colors.BLUE_400, size=24),
+                        ft.Text(
+                            f"All {total_diffs} differences have been resolved! Ready to save.",
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.BLUE_400,
+                            size=15,
+                        ),
+                    ]
+                ),
+                bgcolor=ft.Colors.WHITE10,
+                padding=15,
+                border_radius=8,
+                border=ft.Border.all(1, ft.Colors.BLUE_800),
+            )
+        else:
+            status_banner = ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=ft.Colors.ORANGE_400, size=24),
+                        ft.Text(
+                            f"{total_diffs} differences detected ({total_diffs - resolved_count} pending resolution)",
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.ORANGE_400,
+                            size=15,
+                        ),
+                    ]
+                ),
+                bgcolor=ft.Colors.WHITE10,
+                padding=15,
+                border_radius=8,
+                border=ft.Border.all(1, ft.Colors.ORANGE_800),
+            )
+
+        self.details_container.controls.append(status_banner)
+        self.details_container.controls.append(ft.Divider(height=15, color=ft.Colors.TRANSPARENT))
+
+        # Database info cards side-by-side
+        card_a = ft.Card(
+            content=ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Text("Database A (Base)", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_300),
+                        ft.Text(f"File: {name_a}", weight=ft.FontWeight.BOLD),
+                        ft.Text(f"Path: {path_a}", size=11, color=ft.Colors.GREY_400, selectable=True),
+                        ft.Divider(),
+                        ft.Row(
+                            [
+                                ft.Text("Total Entries:", weight=ft.FontWeight.BOLD),
+                                ft.Text(str(total_a), color=ft.Colors.INDIGO_200, weight=ft.FontWeight.BOLD),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                        ft.Row(
+                            [
+                                ft.Text("Entries Only in A:"),
+                                ft.Text(str(len(only_a_entries)), color=ft.Colors.RED_400, weight=ft.FontWeight.BOLD),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                    ]
+                ),
+                padding=15,
+                expand=True,
+            ),
+            expand=True,
+        )
+
+        card_b = ft.Card(
+            content=ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Text("Database B (Compare)", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.TEAL_300),
+                        ft.Text(f"File: {name_b}", weight=ft.FontWeight.BOLD),
+                        ft.Text(f"Path: {path_b}", size=11, color=ft.Colors.GREY_400, selectable=True),
+                        ft.Divider(),
+                        ft.Row(
+                            [
+                                ft.Text("Total Entries:", weight=ft.FontWeight.BOLD),
+                                ft.Text(str(total_b), color=ft.Colors.TEAL_200, weight=ft.FontWeight.BOLD),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                        ft.Row(
+                            [
+                                ft.Text("Entries Only in B:"),
+                                ft.Text(str(len(only_b_entries)), color=ft.Colors.GREEN_400, weight=ft.FontWeight.BOLD),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                    ]
+                ),
+                padding=15,
+                expand=True,
+            ),
+            expand=True,
+        )
+
+        self.details_container.controls.append(ft.Row([card_a, card_b]))
+        self.details_container.controls.append(ft.Divider(height=15, color=ft.Colors.TRANSPARENT))
+
+        # Differences Breakdown Card
+        diff_stats = ft.Card(
+            content=ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Text("Differences Breakdown", size=16, weight=ft.FontWeight.BOLD),
+                        ft.Divider(),
+                        ft.Row(
+                            [
+                                ft.Text("Conflicting / Changed Entries:"),
+                                ft.Text(
+                                    f"{len(modified_entries)} ({a_newer} A newer, {b_newer} B newer)",
+                                    weight=ft.FontWeight.BOLD,
+                                    color=ft.Colors.ORANGE_300,
+                                ),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                        ft.Row(
+                            [
+                                ft.Text("Entries Only in Database A:"),
+                                ft.Text(str(len(only_a_entries)), weight=ft.FontWeight.BOLD, color=ft.Colors.RED_400),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                        ft.Row(
+                            [
+                                ft.Text("Entries Only in Database B:"),
+                                ft.Text(str(len(only_b_entries)), weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_400),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                        ft.Row(
+                            [
+                                ft.Text("Resolved Entries:"),
+                                ft.Text(f"{resolved_count} / {total_diffs}", weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_300),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        ),
+                    ],
+                    spacing=10,
+                ),
+                padding=15,
+            )
+        )
+
+        self.details_container.controls.append(diff_stats)
+        if self.page:
+            self.page.update()
+
     def show_details(self, diff):
         self.details_container.alignment = ft.MainAxisAlignment.START
         self.details_container.horizontal_alignment = ft.CrossAxisAlignment.START
@@ -240,6 +462,15 @@ class DiffView:
         # Header
         self.details_container.controls.append(
             ft.Text(f"Entry: {diff.title}", size=24, weight=ft.FontWeight.BOLD)
+        )
+        self.details_container.controls.append(
+            ft.Row(
+                [
+                    ft.Text("UUID: ", weight=ft.FontWeight.BOLD, size=12, color=ft.Colors.GREY_400),
+                    ft.Text(str(diff.uuid), size=12, selectable=True, color=ft.Colors.GREY_300),
+                ],
+                tight=True,
+            )
         )
         self.details_container.controls.append(ft.Divider())
 
@@ -744,6 +975,11 @@ class DiffView:
                     title=ft.Text("Comparison Results"),
                     bgcolor=ft.Colors.SURFACE_CONTAINER,
                     actions=[
+                        ft.IconButton(
+                            icon=ft.Icons.DASHBOARD_OUTLINED,
+                            tooltip="Overview Dashboard",
+                            on_click=lambda _: self.show_overview(),
+                        ),
                         ft.ElevatedButton(
                             "Save Merged A",
                             icon=ft.Icons.SAVE,

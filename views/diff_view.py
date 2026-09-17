@@ -7,6 +7,7 @@ import flet as ft
 from core.comparator import Comparator
 from core.merger import Merger
 from state.app_state import app_state
+from views.branch_graph import BranchGraph
 
 
 class DiffView:
@@ -26,6 +27,12 @@ class DiffView:
         self.has_unsaved_changes = False
 
         self.calculate_diff()
+        self.branch_graph = BranchGraph(
+            self.diff_results,
+            self.resolved_uuids,
+            self.resolutions,
+            on_select_diff=self.show_details,
+        )
         self.setup_ui()
 
     async def open_save_dialog(self, target_db):
@@ -338,6 +345,11 @@ class DiffView:
             )
 
         self.details_container.controls.append(status_banner)
+        self.details_container.controls.append(ft.Divider(height=15, color=ft.Colors.TRANSPARENT))
+
+        # Horizontal Branch & Merge Graph
+        self.branch_graph.update_data(self.diff_results, self.resolved_uuids, self.resolutions)
+        self.details_container.controls.append(self.branch_graph)
         self.details_container.controls.append(ft.Divider(height=15, color=ft.Colors.TRANSPARENT))
 
         # Database info cards side-by-side
@@ -867,6 +879,7 @@ class DiffView:
             if action not in ("KEEP_A", "IGNORE_B"):
                 self.has_unsaved_changes = True
             self.refresh_list()
+            self.branch_graph.update_data(self.diff_results, self.resolved_uuids, self.resolutions)
             self.show_details(diff)
 
             snack = ft.SnackBar(ft.Text(f"Resolved: {diff.title}"))
@@ -900,6 +913,7 @@ class DiffView:
             self.has_unsaved_changes = True
 
         self.refresh_list()
+        self.branch_graph.update_data(self.diff_results, self.resolved_uuids, self.resolutions)
         self.page.snack_bar = ft.SnackBar(ft.Text(f"Bulk Accepted {count} entries."))
         self.page.snack_bar.open = True
         self.page.update()
@@ -911,6 +925,7 @@ class DiffView:
             # Note: Full undo of memory changes in Merger/PyKeePass is complex.
             # This "soft undo" allows the user to re-select a resolution in the UI.
             self.refresh_list()
+            self.branch_graph.update_data(self.diff_results, self.resolved_uuids, self.resolutions)
             self.show_details(diff)
 
             snack = ft.SnackBar(

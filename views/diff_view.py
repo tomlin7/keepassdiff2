@@ -23,6 +23,7 @@ class DiffView:
         self.current_filter = "all"
 
         self.resolutions = {}  # Track uuid -> action
+        self.has_unsaved_changes = False
 
         self.calculate_diff()
         self.setup_ui()
@@ -44,6 +45,8 @@ class DiffView:
             else:
                 app_state.kp_b.save(filename=path)
 
+            self.has_unsaved_changes = False
+
             snack = ft.SnackBar(
                 ft.Text(
                     f"Successfully saved Database {target_db} to {path}",
@@ -59,9 +62,12 @@ class DiffView:
                 title=ft.Text("Error"),
                 content=ft.Text(f"Failed to save: {str(ex)}"),
             )
-            self.page.dialog = err_dlg
-            err_dlg.open = True
-            self.page.update()
+            if hasattr(self.page, "show_dialog"):
+                self.page.show_dialog(err_dlg)
+            else:
+                self.page.dialog = err_dlg
+                err_dlg.open = True
+                self.page.update()
 
     def sort_diff_entries(self):
         # TODO: Sort mainly by modification time?
@@ -491,6 +497,22 @@ class DiffView:
             self.details_container.controls.append(ft.Divider(opacity=opacity))
             for field in fields:
                 val_a = getattr(diff.entry_a, field)
+                if field == "password":
+                    ctrl_a = ft.TextField(
+                        value=str(val_a) if val_a is not None else "",
+                        password=True,
+                        can_reveal_password=True,
+                        read_only=True,
+                        expand=True,
+                        opacity=opacity,
+                    )
+                else:
+                    ctrl_a = ft.Text(
+                        str(val_a),
+                        selectable=True,
+                        expand=True,
+                        opacity=opacity,
+                    )
                 self.details_container.controls.append(
                     ft.Row(
                         [
@@ -500,12 +522,7 @@ class DiffView:
                                 weight=ft.FontWeight.BOLD,
                                 opacity=opacity,
                             ),
-                            ft.Text(
-                                str(val_a),
-                                selectable=True,
-                                expand=True,
-                                opacity=opacity,
-                            ),
+                            ctrl_a,
                         ]
                     )
                 )
@@ -546,6 +563,22 @@ class DiffView:
             self.details_container.controls.append(ft.Divider(opacity=opacity))
             for field in fields:
                 val_b = getattr(diff.entry_b, field)
+                if field == "password":
+                    ctrl_b = ft.TextField(
+                        value=str(val_b) if val_b is not None else "",
+                        password=True,
+                        can_reveal_password=True,
+                        read_only=True,
+                        expand=True,
+                        opacity=opacity,
+                    )
+                else:
+                    ctrl_b = ft.Text(
+                        str(val_b),
+                        selectable=True,
+                        expand=True,
+                        opacity=opacity,
+                    )
                 self.details_container.controls.append(
                     ft.Row(
                         [
@@ -555,12 +588,7 @@ class DiffView:
                                 weight=ft.FontWeight.BOLD,
                                 opacity=opacity,
                             ),
-                            ft.Text(
-                                str(val_b),
-                                selectable=True,
-                                expand=True,
-                                opacity=opacity,
-                            ),
+                            ctrl_b,
                         ]
                     )
                 )
@@ -595,6 +623,8 @@ class DiffView:
             self.merger.apply_resolution(diff, action)
             self.resolved_uuids.add(diff.uuid)
             self.resolutions[diff.uuid] = action
+            if action not in ("KEEP_A", "IGNORE_B"):
+                self.has_unsaved_changes = True
             self.refresh_list()
             self.show_details(diff)
 
@@ -625,6 +655,9 @@ class DiffView:
                 self.resolved_uuids.add(diff.uuid)
                 count += 1
 
+        if count > 0:
+            self.has_unsaved_changes = True
+
         self.refresh_list()
         self.page.snack_bar = ft.SnackBar(ft.Text(f"Bulk Accepted {count} entries."))
         self.page.snack_bar.open = True
@@ -649,8 +682,48 @@ class DiffView:
             snack.open = True
             self.page.update()
 
-    async def go_back(self, e):
+    def close_dialog(self, e):
+        if hasattr(self.page, "pop_dialog"):
+            self.page.pop_dialog()
+        elif self.page.dialog:
+            self.page.dialog.open = False
+            self.page.update()
+
+    async def confirm_discard_and_exit(self, e):
+        if hasattr(self.page, "pop_dialog"):
+            self.page.pop_dialog()
+        elif self.page.dialog:
+            self.page.dialog.open = False
+            self.page.update()
+        self.has_unsaved_changes = False
         await self.page.push_route("/")
+
+    async def go_back(self, e):
+        if self.has_unsaved_changes:
+            dlg = ft.AlertDialog(
+                modal=True,
+                title=ft.Text("Unsaved Changes"),
+                content=ft.Text(
+                    "You have unsaved changes that will be lost if you leave. Are you sure you want to exit?"
+                ),
+                actions=[
+                    ft.TextButton("Cancel", on_click=self.close_dialog),
+                    ft.ElevatedButton(
+                        "Discard & Exit",
+                        style=ft.ButtonStyle(color=ft.Colors.RED_400),
+                        on_click=self.confirm_discard_and_exit,
+                    ),
+                ],
+                actions_alignment=ft.MainAxisAlignment.END,
+            )
+            if hasattr(self.page, "show_dialog"):
+                self.page.show_dialog(dlg)
+            else:
+                self.page.dialog = dlg
+                dlg.open = True
+                self.page.update()
+        else:
+            await self.page.push_route("/")
 
     @property
     def view(self):

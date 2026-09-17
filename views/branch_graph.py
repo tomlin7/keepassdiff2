@@ -25,8 +25,10 @@ class BranchGraph(ft.Container):
         self.resolved_uuids = resolved_uuids
         self.resolutions = resolutions
         self.content = self._build_ui()
-        if self.page:
-            self.page.update()
+        try:
+            self.update()
+        except RuntimeError:
+            pass
 
     def _build_ui(self) -> ft.Control:
         if not self.diff_results:

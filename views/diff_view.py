@@ -28,6 +28,7 @@ class DiffView:
 
         self.calculate_diff()
         self.branch_graph = BranchGraph(
+            self.page,
             self.diff_results,
             self.resolved_uuids,
             self.resolutions,
@@ -126,38 +127,47 @@ class DiffView:
         )
 
         self.layout = ft.Container(
-            content=ft.Row(
+            content=ft.Column(
                 controls=[
-                    ft.Container(
-                        content=ft.Column(
-                            [
-                                ft.ListTile(
-                                    leading=ft.Icon(
-                                        ft.Icons.DASHBOARD, color=ft.Colors.INDIGO_300
-                                    ),
-                                    title=ft.Text(
-                                        "Overview Dashboard",
-                                        weight=ft.FontWeight.BOLD,
-                                    ),
-                                    on_click=lambda _: self.show_overview(),
+                    self.branch_graph,
+                    ft.Row(
+                        controls=[
+                            ft.Container(
+                                content=ft.Column(
+                                    [
+                                        ft.ListTile(
+                                            leading=ft.Icon(
+                                                ft.Icons.DASHBOARD, color=ft.Colors.INDIGO_300
+                                            ),
+                                            title=ft.Text(
+                                                "Overview Dashboard",
+                                                weight=ft.FontWeight.BOLD,
+                                            ),
+                                            on_click=lambda _: self.show_overview(),
+                                        ),
+                                        ft.Divider(height=1),
+                                        self.filter_tabs,
+                                        self.diff_list,
+                                    ]
                                 ),
-                                ft.Divider(height=1),
-                                self.filter_tabs,
-                                self.diff_list,
-                            ]
-                        ),
-                        width=350,
-                        bgcolor=ft.Colors.SURFACE_CONTAINER,
-                        border_radius=10,
-                    ),
-                    ft.VerticalDivider(width=1, color=ft.Colors.GREY_800),
-                    ft.Container(
-                        content=self.details_container, expand=True, padding=20
+                                width=350,
+                                bgcolor=ft.Colors.SURFACE_CONTAINER,
+                                border_radius=10,
+                            ),
+                            ft.VerticalDivider(width=1, color=ft.Colors.GREY_800),
+                            ft.Container(
+                                content=self.details_container,
+                                expand=True,
+                                padding=ft.Padding.only(left=10, right=10, top=5, bottom=10),
+                            ),
+                        ],
+                        expand=True,
                     ),
                 ],
                 expand=True,
+                spacing=8,
             ),
-            padding=10,
+            padding=ft.Padding.symmetric(horizontal=10, vertical=5),
             expand=True,
         )
 
@@ -329,17 +339,30 @@ class DiffView:
             status_banner = ft.Container(
                 content=ft.Row(
                     [
-                        ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=ft.Colors.ORANGE_400, size=24),
-                        ft.Text(
-                            f"{total_diffs} differences detected ({total_diffs - resolved_count} pending resolution)",
-                            weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.ORANGE_400,
-                            size=15,
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=ft.Colors.ORANGE_400, size=24),
+                                ft.Text(
+                                    f"{total_diffs} differences detected ({total_diffs - resolved_count} pending resolution)",
+                                    weight=ft.FontWeight.BOLD,
+                                    color=ft.Colors.ORANGE_400,
+                                    size=15,
+                                ),
+                            ],
+                            spacing=10,
+                            tight=True,
                         ),
-                    ]
+                        ft.ElevatedButton(
+                            "Fullscreen Graph",
+                            icon=ft.Icons.AUTO_GRAPH,
+                            on_click=self.branch_graph.open_fullscreen,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
                 bgcolor=ft.Colors.WHITE10,
-                padding=15,
+                padding=12,
                 border_radius=8,
                 border=ft.Border.all(1, ft.Colors.ORANGE_800),
             )
@@ -347,10 +370,8 @@ class DiffView:
         self.details_container.controls.append(status_banner)
         self.details_container.controls.append(ft.Divider(height=15, color=ft.Colors.TRANSPARENT))
 
-        # Horizontal Branch & Merge Graph
+        # Update Top Branch & Commit Graph data
         self.branch_graph.update_data(self.diff_results, self.resolved_uuids, self.resolutions)
-        self.details_container.controls.append(self.branch_graph)
-        self.details_container.controls.append(ft.Divider(height=15, color=ft.Colors.TRANSPARENT))
 
         # Database info cards side-by-side
         card_a = ft.Card(

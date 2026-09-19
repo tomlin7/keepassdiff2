@@ -210,7 +210,7 @@ class BranchGraph(ft.Container):
     def _generate_track_canvas(self, diff_list: list, H: int, total_h: int) -> ft.Control:
         N = len(diff_list)
         x0 = 20
-        x1 = 46
+        x1 = 44
 
         p_trunk = ft.Paint(
             color=ft.Colors.BLUE_400,
@@ -219,18 +219,12 @@ class BranchGraph(ft.Container):
             style=ft.PaintingStyle.STROKE,
         )
         p_branch = ft.Paint(
-            color=ft.Colors.AMBER_400,
-            stroke_width=2,
-            stroke_cap=ft.StrokeCap.ROUND,
-            style=ft.PaintingStyle.STROKE,
-        )
-        p_teal = ft.Paint(
             color=ft.Colors.TEAL_400,
             stroke_width=2,
             stroke_cap=ft.StrokeCap.ROUND,
             style=ft.PaintingStyle.STROKE,
         )
-        p_green_stroke = ft.Paint(
+        p_merge = ft.Paint(
             color=ft.Colors.GREEN_400,
             stroke_width=2,
             stroke_cap=ft.StrokeCap.ROUND,
@@ -238,7 +232,7 @@ class BranchGraph(ft.Container):
         )
         p_green_ring = ft.Paint(
             color=ft.Colors.GREEN_400,
-            stroke_width=2.5,
+            stroke_width=2,
             style=ft.PaintingStyle.STROKE,
         )
         p_dot_amber = ft.Paint(color=ft.Colors.AMBER_400, style=ft.PaintingStyle.FILL)
@@ -249,58 +243,63 @@ class BranchGraph(ft.Container):
 
         shapes = []
 
-        # 1. Main Continuous Base Trunk Line
-        if N > 1:
-            shapes.append(cv.Line(x0, 19, x0, total_h - 19, paint=p_trunk))
-        else:
-            shapes.append(cv.Line(x0, 10, x0, 28, paint=p_trunk))
+        has_branch = any(d.state in ("MODIFIED", "ONLY_IN_B") for d in diff_list)
+        branch_indices = [i for i, d in enumerate(diff_list) if d.state in ("MODIFIED", "ONLY_IN_B")]
 
-        # 2. Branch Curves and Commit Nodes
+        # 1. Base Trunk (Lane 0) - Continuous vertical line
+        if N > 1:
+            shapes.append(cv.Line(x0, 16, x0, total_h - 16, paint=p_trunk))
+        else:
+            shapes.append(cv.Line(x0, 8, x0, 24, paint=p_trunk))
+
+        # 2. Compare Branch (Lane 1) - Continuous vertical line branching off at top
+        if has_branch:
+            first_branch_i = branch_indices[0]
+            last_branch_i = branch_indices[-1]
+            y_fork_start = max(8, first_branch_i * H)
+            y_branch_end = last_branch_i * H + 16
+
+            shapes.append(
+                cv.Path(
+                    elements=[
+                        cv.Path.MoveTo(x0, y_fork_start),
+                        cv.Path.CubicTo(x0 + 8, y_fork_start + 4, x1, y_fork_start + 10, x1, y_fork_start + 16),
+                        cv.Path.LineTo(x1, y_branch_end),
+                    ],
+                    paint=p_branch,
+                )
+            )
+
+        # 3. Commit Nodes & Merges per row
         for i, diff in enumerate(diff_list):
-            cy = i * H + 19
+            cy = i * H + 16
             is_resolved = diff.uuid in self.resolved_uuids
 
             if is_resolved:
-                # Merge arc from branch lane into trunk
-                y_from = max(0, cy - 20)
+                # Merge arc from Lane 1 into Lane 0
                 shapes.append(
                     cv.Path(
                         elements=[
-                            cv.Path.MoveTo(x1, y_from),
-                            cv.Path.CubicTo(x1, cy - 8, x0 + 10, cy, x0, cy),
+                            cv.Path.MoveTo(x1, max(8, cy - 14)),
+                            cv.Path.CubicTo(x1 - 6, cy - 4, x0 + 8, cy, x0, cy),
                         ],
-                        paint=p_green_stroke,
+                        paint=p_merge,
                     )
                 )
-                # Double-ring merge commit at (x0, cy)
-                shapes.append(cv.Circle(x0, cy, 6.5, paint=p_dot_bg))
-                shapes.append(cv.Circle(x0, cy, 6.5, paint=p_green_ring))
-                shapes.append(cv.Circle(x0, cy, 3.0, paint=p_dot_green))
+                shapes.append(cv.Circle(x0, cy, 6, paint=p_dot_bg))
+                shapes.append(cv.Circle(x0, cy, 6, paint=p_green_ring))
+                shapes.append(cv.Circle(x0, cy, 2.5, paint=p_dot_green))
             elif diff.state == "MODIFIED":
-                # Smooth bezier fork curve from trunk to branch lane
-                y_fork = max(0, cy - 20)
-                shapes.append(
-                    cv.Path(
-                        elements=[
-                            cv.Path.MoveTo(x0, y_fork),
-                            cv.Path.CubicTo(x0, cy - 8, x1 - 10, cy, x1, cy),
-                        ],
-                        paint=p_branch,
-                    )
-                )
                 shapes.append(cv.Circle(x1, cy, 5.5, paint=p_dot_bg))
-                shapes.append(cv.Circle(x1, cy, 4.5, paint=p_dot_amber))
+                shapes.append(cv.Circle(x1, cy, 4, paint=p_dot_amber))
             elif diff.state == "ONLY_IN_B":
-                # Incoming branch line down to (x1, cy)
-                y_from = max(0, cy - 20)
-                shapes.append(cv.Line(x1, y_from, x1, cy, paint=p_teal))
                 shapes.append(cv.Circle(x1, cy, 5.5, paint=p_dot_bg))
-                shapes.append(cv.Circle(x1, cy, 4.5, paint=p_dot_teal))
+                shapes.append(cv.Circle(x1, cy, 4, paint=p_dot_teal))
             else:  # ONLY_IN_A
                 shapes.append(cv.Circle(x0, cy, 5.5, paint=p_dot_bg))
-                shapes.append(cv.Circle(x0, cy, 4.5, paint=p_dot_blue))
+                shapes.append(cv.Circle(x0, cy, 4, paint=p_dot_blue))
 
-        return cv.Canvas(shapes=shapes, width=66, height=total_h)
+        return cv.Canvas(shapes=shapes, width=58, height=total_h)
 
     def _build_commit_row(self, diff: any, H: int, close_dialog: bool = False) -> ft.Control:
         is_resolved = diff.uuid in self.resolved_uuids
@@ -326,7 +325,7 @@ class BranchGraph(ft.Container):
                 ),
                 bgcolor="#064e3b",
                 border_radius=4,
-                padding=ft.Padding.symmetric(horizontal=6, vertical=2),
+                padding=ft.Padding.symmetric(horizontal=6, vertical=1.5),
                 border=ft.Border.all(1, "#059669"),
             )
             commit_text = f"Merge '{title}' into Base"
@@ -344,10 +343,10 @@ class BranchGraph(ft.Container):
                     weight=ft.FontWeight.W_600,
                     color="#fbbf24",
                 ),
-                bgcolor="#451a03",
+                bgcolor="#3d2003",
                 border_radius=4,
-                padding=ft.Padding.symmetric(horizontal=6, vertical=2),
-                border=ft.Border.all(1, "#b45309"),
+                padding=ft.Padding.symmetric(horizontal=6, vertical=1.5),
+                border=ft.Border.all(1, "#92400e"),
             )
             commit_text = f"Update '{title}'"
         elif diff.state == "ONLY_IN_B":
@@ -367,8 +366,8 @@ class BranchGraph(ft.Container):
                 ),
                 bgcolor="#042f2e",
                 border_radius=4,
-                padding=ft.Padding.symmetric(horizontal=6, vertical=2),
-                border=ft.Border.all(1, "#0f766e"),
+                padding=ft.Padding.symmetric(horizontal=6, vertical=1.5),
+                border=ft.Border.all(1, "#0d9488"),
             )
             commit_text = f"Add '{title}' from Compare"
         else:  # ONLY_IN_A
@@ -379,10 +378,10 @@ class BranchGraph(ft.Container):
                     weight=ft.FontWeight.W_600,
                     color="#93c5fd",
                 ),
-                bgcolor="#172554",
+                bgcolor="#0f172a",
                 border_radius=4,
-                padding=ft.Padding.symmetric(horizontal=6, vertical=2),
-                border=ft.Border.all(1, "#1d4ed8"),
+                padding=ft.Padding.symmetric(horizontal=6, vertical=1.5),
+                border=ft.Border.all(1, "#2563eb"),
             )
             commit_text = f"Retain '{title}' in Base"
 
@@ -419,7 +418,7 @@ class BranchGraph(ft.Container):
         )
 
     def _build_graph_body(self, diff_list: list, height: Optional[int] = None, close_dialog: bool = False) -> ft.Control:
-        H = 38
+        H = 32
         N = len(diff_list)
         total_h = N * H
 

@@ -1,6 +1,7 @@
 from typing import Callable, List, Optional
 import urllib.parse
 import flet as ft
+import flet.canvas as cv
 
 
 class BranchGraph(ft.Container):
@@ -206,77 +207,100 @@ class BranchGraph(ft.Container):
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    def _generate_svg_track(self, diff_list: list, H: int, total_h: int) -> ft.Control:
+    def _generate_track_canvas(self, diff_list: list, H: int, total_h: int) -> ft.Control:
         N = len(diff_list)
         x0 = 20
         x1 = 46
 
-        svg_lines = [
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="66" height="{total_h}" viewBox="0 0 66 {total_h}">'
-        ]
+        p_trunk = ft.Paint(
+            color=ft.Colors.BLUE_400,
+            stroke_width=2.5,
+            stroke_cap=ft.StrokeCap.ROUND,
+            style=ft.PaintingStyle.STROKE,
+        )
+        p_branch = ft.Paint(
+            color=ft.Colors.AMBER_400,
+            stroke_width=2,
+            stroke_cap=ft.StrokeCap.ROUND,
+            style=ft.PaintingStyle.STROKE,
+        )
+        p_teal = ft.Paint(
+            color=ft.Colors.TEAL_400,
+            stroke_width=2,
+            stroke_cap=ft.StrokeCap.ROUND,
+            style=ft.PaintingStyle.STROKE,
+        )
+        p_green_stroke = ft.Paint(
+            color=ft.Colors.GREEN_400,
+            stroke_width=2,
+            stroke_cap=ft.StrokeCap.ROUND,
+            style=ft.PaintingStyle.STROKE,
+        )
+        p_green_ring = ft.Paint(
+            color=ft.Colors.GREEN_400,
+            stroke_width=2.5,
+            style=ft.PaintingStyle.STROKE,
+        )
+        p_dot_amber = ft.Paint(color=ft.Colors.AMBER_400, style=ft.PaintingStyle.FILL)
+        p_dot_teal = ft.Paint(color=ft.Colors.TEAL_400, style=ft.PaintingStyle.FILL)
+        p_dot_blue = ft.Paint(color=ft.Colors.BLUE_400, style=ft.PaintingStyle.FILL)
+        p_dot_green = ft.Paint(color=ft.Colors.GREEN_400, style=ft.PaintingStyle.FILL)
+        p_dot_bg = ft.Paint(color="#18181b", style=ft.PaintingStyle.FILL)
+
+        shapes = []
 
         # 1. Main Continuous Base Trunk Line
         if N > 1:
-            svg_lines.append(
-                f'<line x1="{x0}" y1="19" x2="{x0}" y2="{total_h - 19}" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>'
-            )
+            shapes.append(cv.Line(x0, 19, x0, total_h - 19, paint=p_trunk))
         else:
-            svg_lines.append(
-                f'<line x1="{x0}" y1="10" x2="{x0}" y2="28" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>'
-            )
+            shapes.append(cv.Line(x0, 10, x0, 28, paint=p_trunk))
 
-        # 2. Per-Row Branch Curves and Commit Nodes
+        # 2. Branch Curves and Commit Nodes
         for i, diff in enumerate(diff_list):
             cy = i * H + 19
             is_resolved = diff.uuid in self.resolved_uuids
 
             if is_resolved:
-                # Smooth bezier merge curve from branch into trunk
+                # Merge arc from branch lane into trunk
                 y_from = max(0, cy - 20)
-                svg_lines.append(
-                    f'<path d="M {x1},{y_from} C {x1},{cy - 4} {x0 + 10},{cy} {x0},{cy}" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>'
+                shapes.append(
+                    cv.Path(
+                        elements=[
+                            cv.Path.MoveTo(x1, y_from),
+                            cv.Path.CubicTo(x1, cy - 8, x0 + 10, cy, x0, cy),
+                        ],
+                        paint=p_green_stroke,
+                    )
                 )
-                # GitLens style double-ring merge commit
-                svg_lines.append(
-                    f'<circle cx="{x0}" cy="{cy}" r="6.5" fill="#18181b" stroke="#10b981" stroke-width="2.5"/>'
-                )
-                svg_lines.append(
-                    f'<circle cx="{x0}" cy="{cy}" r="3" fill="#10b981"/>'
-                )
+                # Double-ring merge commit at (x0, cy)
+                shapes.append(cv.Circle(x0, cy, 6.5, paint=p_dot_bg))
+                shapes.append(cv.Circle(x0, cy, 6.5, paint=p_green_ring))
+                shapes.append(cv.Circle(x0, cy, 3.0, paint=p_dot_green))
             elif diff.state == "MODIFIED":
-                # Smooth bezier fork curve branching out to branch lane
-                y_fork = max(0, cy - 22)
-                svg_lines.append(
-                    f'<path d="M {x0},{y_fork} C {x0},{cy - 4} {x1 - 12},{cy} {x1},{cy}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>'
+                # Smooth bezier fork curve from trunk to branch lane
+                y_fork = max(0, cy - 20)
+                shapes.append(
+                    cv.Path(
+                        elements=[
+                            cv.Path.MoveTo(x0, y_fork),
+                            cv.Path.CubicTo(x0, cy - 8, x1 - 10, cy, x1, cy),
+                        ],
+                        paint=p_branch,
+                    )
                 )
-                svg_lines.append(
-                    f'<circle cx="{x1}" cy="{cy}" r="5" fill="#f59e0b" stroke="#18181b" stroke-width="1.8"/>'
-                )
+                shapes.append(cv.Circle(x1, cy, 5.5, paint=p_dot_bg))
+                shapes.append(cv.Circle(x1, cy, 4.5, paint=p_dot_amber))
             elif diff.state == "ONLY_IN_B":
-                # Incoming branch line
+                # Incoming branch line down to (x1, cy)
                 y_from = max(0, cy - 20)
-                svg_lines.append(
-                    f'<line x1="{x1}" y1="{y_from}" x2="{x1}" y2="{cy}" stroke="#14b8a6" stroke-width="2" stroke-linecap="round"/>'
-                )
-                svg_lines.append(
-                    f'<circle cx="{x1}" cy="{cy}" r="5" fill="#14b8a6" stroke="#18181b" stroke-width="1.8"/>'
-                )
+                shapes.append(cv.Line(x1, y_from, x1, cy, paint=p_teal))
+                shapes.append(cv.Circle(x1, cy, 5.5, paint=p_dot_bg))
+                shapes.append(cv.Circle(x1, cy, 4.5, paint=p_dot_teal))
             else:  # ONLY_IN_A
-                svg_lines.append(
-                    f'<circle cx="{x0}" cy="{cy}" r="5" fill="#3b82f6" stroke="#18181b" stroke-width="1.8"/>'
-                )
+                shapes.append(cv.Circle(x0, cy, 5.5, paint=p_dot_bg))
+                shapes.append(cv.Circle(x0, cy, 4.5, paint=p_dot_blue))
 
-        svg_lines.append("</svg>")
-        svg_code = "\n".join(svg_lines)
-        src = "data:image/svg+xml;utf8," + urllib.parse.quote(svg_code)
-
-        return ft.Image(
-            src=src,
-            width=66,
-            height=total_h,
-            fit=ft.BoxFit.NONE,
-            repeat=ft.ImageRepeat.NO_REPEAT,
-        )
+        return cv.Canvas(shapes=shapes, width=66, height=total_h)
 
     def _build_commit_row(self, diff: any, H: int, close_dialog: bool = False) -> ft.Control:
         is_resolved = diff.uuid in self.resolved_uuids
@@ -399,7 +423,7 @@ class BranchGraph(ft.Container):
         N = len(diff_list)
         total_h = N * H
 
-        svg_track = self._generate_svg_track(diff_list, H, total_h)
+        track_canvas = self._generate_track_canvas(diff_list, H, total_h)
 
         row_controls = [
             self._build_commit_row(diff, H, close_dialog)
@@ -408,7 +432,7 @@ class BranchGraph(ft.Container):
 
         graph_row = ft.Row(
             [
-                svg_track,
+                track_canvas,
                 ft.Column(
                     row_controls,
                     spacing=0,

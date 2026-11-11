@@ -314,7 +314,7 @@ class DiffView:
                         ),
                     ]
                 ),
-                bgcolor=ft.Colors.WHITE10,
+                bgcolor=ft.Colors.WHITE_10,
                 padding=15,
                 border_radius=8,
                 border=ft.Border.all(1, ft.Colors.GREEN_800),
@@ -332,7 +332,7 @@ class DiffView:
                         ),
                     ]
                 ),
-                bgcolor=ft.Colors.WHITE10,
+                bgcolor=ft.Colors.WHITE_10,
                 padding=15,
                 border_radius=8,
                 border=ft.Border.all(1, ft.Colors.BLUE_800),
@@ -354,7 +354,7 @@ class DiffView:
                             spacing=10,
                             tight=True,
                         ),
-                        ft.ElevatedButton(
+                        ft.Button(
                             "Fullscreen Graph",
                             icon=ft.Icons.AUTO_GRAPH,
                             on_click=self.branch_graph.open_fullscreen,
@@ -363,7 +363,7 @@ class DiffView:
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                bgcolor=ft.Colors.WHITE10,
+                bgcolor=ft.Colors.WHITE_10,
                 padding=12,
                 border_radius=8,
                 border=ft.Border.all(1, ft.Colors.ORANGE_800),
@@ -546,7 +546,7 @@ class DiffView:
                                 ]
                             ),
                             ft.Text(action_labels.get(action, action), size=16),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "UNDO RESOLUTION",
                                 icon=ft.Icons.UNDO,
                                 on_click=lambda _: self.undo_resolution(diff),
@@ -555,7 +555,7 @@ class DiffView:
                         ],
                         spacing=10,
                     ),
-                    bgcolor=ft.Colors.WHITE10,
+                    bgcolor=ft.Colors.WHITE_10,
                     padding=20,
                     border_radius=10,
                     border=ft.Border.all(1, ft.Colors.GREEN_900),
@@ -697,7 +697,7 @@ class DiffView:
                 val_a = getattr(diff.entry_a, field)
                 val_b = getattr(diff.entry_b, field)
                 is_diff = field in diff.diffs
-                bg_color = ft.Colors.WHITE10 if is_diff else ft.Colors.TRANSPARENT
+                bg_color = ft.Colors.WHITE_10 if is_diff else ft.Colors.TRANSPARENT
 
                 if field == "password":
                     control_a = ft.TextField(
@@ -745,7 +745,7 @@ class DiffView:
                 self.details_container.controls.append(
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Keep Current (A)",
                                 icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
                                 tooltip="Keep Database A's values unchanged",
@@ -753,7 +753,7 @@ class DiffView:
                                     self.resolve_conflict, diff, "A"
                                 ),
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Accept Incoming (Copy B to A)",
                                 icon=ft.Icons.ARROW_CIRCLE_RIGHT_OUTLINED,
                                 tooltip="Copy values from Database B into Database A",
@@ -761,7 +761,7 @@ class DiffView:
                                     self.resolve_conflict, diff, "B"
                                 ),
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Keep Both",
                                 icon=ft.Icons.COPY_ALL,
                                 tooltip="Keep Database A version and import Database B as a new entry",
@@ -820,14 +820,14 @@ class DiffView:
                 self.details_container.controls.append(
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Keep in A",
                                 icon=ft.Icons.CHECK,
                                 on_click=lambda _: self.page.run_task(
                                     self.resolve_conflict, diff, "KEEP_A"
                                 ),
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Delete from A",
                                 icon=ft.Icons.DELETE,
                                 style=ft.ButtonStyle(color=ft.Colors.RED),
@@ -886,14 +886,14 @@ class DiffView:
                 self.details_container.controls.append(
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Import to A",
                                 icon=ft.Icons.ADD,
                                 on_click=lambda _: self.page.run_task(
                                     self.resolve_conflict, diff, "IMPORT_B"
                                 ),
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Ignore",
                                 icon=ft.Icons.CLOSE,
                                 on_click=lambda _: self.page.run_task(
@@ -1019,7 +1019,7 @@ class DiffView:
                 ),
                 actions=[
                     ft.TextButton("Cancel", on_click=self.close_dialog),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Discard & Exit",
                         style=ft.ButtonStyle(color=ft.Colors.RED_400),
                         on_click=self.confirm_discard_and_exit,
@@ -1050,7 +1050,7 @@ class DiffView:
                             tooltip="Overview Dashboard",
                             on_click=lambda _: self.show_overview(),
                         ),
-                        ft.ElevatedButton(
+                        ft.Button(
                             "Save Merged A",
                             icon=ft.Icons.SAVE,
                             tooltip="Save merged changes into Database A file",

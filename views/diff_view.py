@@ -7,6 +7,7 @@ import flet as ft
 from core.comparator import Comparator
 from core.merger import Merger
 from state.app_state import app_state
+from views.branch_graph import BranchGraph
 
 
 class DiffView:
@@ -23,9 +24,18 @@ class DiffView:
         self.current_filter = "all"
 
         self.resolutions = {}  # Track uuid -> action
+        self.resolution_timestamps = {}  # Track uuid -> datetime of resolution
         self.has_unsaved_changes = False
 
         self.calculate_diff()
+        self.branch_graph = BranchGraph(
+            self.page,
+            self.diff_results,
+            self.resolved_uuids,
+            self.resolutions,
+            on_select_diff=self.show_details,
+            resolution_timestamps=self.resolution_timestamps,
+        )
         self.setup_ui()
 
     async def open_save_dialog(self, target_db):
@@ -119,38 +129,47 @@ class DiffView:
         )
 
         self.layout = ft.Container(
-            content=ft.Row(
+            content=ft.Column(
                 controls=[
-                    ft.Container(
-                        content=ft.Column(
-                            [
-                                ft.ListTile(
-                                    leading=ft.Icon(
-                                        ft.Icons.DASHBOARD, color=ft.Colors.INDIGO_300
-                                    ),
-                                    title=ft.Text(
-                                        "Overview Dashboard",
-                                        weight=ft.FontWeight.BOLD,
-                                    ),
-                                    on_click=lambda _: self.show_overview(),
+                    self.branch_graph,
+                    ft.Row(
+                        controls=[
+                            ft.Container(
+                                content=ft.Column(
+                                    [
+                                        ft.ListTile(
+                                            leading=ft.Icon(
+                                                ft.Icons.DASHBOARD, color=ft.Colors.INDIGO_300
+                                            ),
+                                            title=ft.Text(
+                                                "Overview Dashboard",
+                                                weight=ft.FontWeight.BOLD,
+                                            ),
+                                            on_click=lambda _: self.show_overview(),
+                                        ),
+                                        ft.Divider(height=1),
+                                        self.filter_tabs,
+                                        self.diff_list,
+                                    ]
                                 ),
-                                ft.Divider(height=1),
-                                self.filter_tabs,
-                                self.diff_list,
-                            ]
-                        ),
-                        width=350,
-                        bgcolor=ft.Colors.SURFACE_CONTAINER,
-                        border_radius=10,
-                    ),
-                    ft.VerticalDivider(width=1, color=ft.Colors.GREY_800),
-                    ft.Container(
-                        content=self.details_container, expand=True, padding=20
+                                width=350,
+                                bgcolor=ft.Colors.SURFACE_CONTAINER,
+                                border_radius=10,
+                            ),
+                            ft.VerticalDivider(width=1, color=ft.Colors.GREY_800),
+                            ft.Container(
+                                content=self.details_container,
+                                expand=True,
+                                padding=ft.Padding.only(left=10, right=10, top=5, bottom=10),
+                            ),
+                        ],
+                        expand=True,
                     ),
                 ],
                 expand=True,
+                spacing=8,
             ),
-            padding=10,
+            padding=ft.Padding.symmetric(horizontal=10, vertical=5),
             expand=True,
         )
 
@@ -295,7 +314,7 @@ class DiffView:
                         ),
                     ]
                 ),
-                bgcolor=ft.Colors.WHITE10,
+                bgcolor=ft.Colors.WHITE_10,
                 padding=15,
                 border_radius=8,
                 border=ft.Border.all(1, ft.Colors.GREEN_800),
@@ -313,7 +332,7 @@ class DiffView:
                         ),
                     ]
                 ),
-                bgcolor=ft.Colors.WHITE10,
+                bgcolor=ft.Colors.WHITE_10,
                 padding=15,
                 border_radius=8,
                 border=ft.Border.all(1, ft.Colors.BLUE_800),
@@ -322,23 +341,44 @@ class DiffView:
             status_banner = ft.Container(
                 content=ft.Row(
                     [
-                        ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=ft.Colors.ORANGE_400, size=24),
-                        ft.Text(
-                            f"{total_diffs} differences detected ({total_diffs - resolved_count} pending resolution)",
-                            weight=ft.FontWeight.BOLD,
-                            color=ft.Colors.ORANGE_400,
-                            size=15,
+                        ft.Row(
+                            [
+                                ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=ft.Colors.ORANGE_400, size=24),
+                                ft.Text(
+                                    f"{total_diffs} differences detected ({total_diffs - resolved_count} pending resolution)",
+                                    weight=ft.FontWeight.BOLD,
+                                    color=ft.Colors.ORANGE_400,
+                                    size=15,
+                                ),
+                            ],
+                            spacing=10,
+                            tight=True,
                         ),
-                    ]
+                        ft.Button(
+                            "Fullscreen Graph",
+                            icon=ft.Icons.AUTO_GRAPH,
+                            on_click=self.branch_graph.open_fullscreen,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                bgcolor=ft.Colors.WHITE10,
-                padding=15,
+                bgcolor=ft.Colors.WHITE_10,
+                padding=12,
                 border_radius=8,
                 border=ft.Border.all(1, ft.Colors.ORANGE_800),
             )
 
         self.details_container.controls.append(status_banner)
         self.details_container.controls.append(ft.Divider(height=15, color=ft.Colors.TRANSPARENT))
+
+        # Update Top Branch & Commit Graph data
+        self.branch_graph.update_data(
+            self.diff_results,
+            self.resolved_uuids,
+            self.resolutions,
+            self.resolution_timestamps,
+        )
 
         # Database info cards side-by-side
         card_a = ft.Card(
@@ -506,7 +546,7 @@ class DiffView:
                                 ]
                             ),
                             ft.Text(action_labels.get(action, action), size=16),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "UNDO RESOLUTION",
                                 icon=ft.Icons.UNDO,
                                 on_click=lambda _: self.undo_resolution(diff),
@@ -515,7 +555,7 @@ class DiffView:
                         ],
                         spacing=10,
                     ),
-                    bgcolor=ft.Colors.WHITE10,
+                    bgcolor=ft.Colors.WHITE_10,
                     padding=20,
                     border_radius=10,
                     border=ft.Border.all(1, ft.Colors.GREEN_900),
@@ -542,21 +582,15 @@ class DiffView:
         fields = ["title", "username", "password", "url", "notes"]
 
         if diff.state == "MODIFIED":
-            import os
+            ea = diff.entry_a
+            eb = diff.entry_b
 
-            try:
-                ts_a = (
-                    datetime.fromtimestamp(os.path.getmtime(app_state.db_path_a))
-                    if app_state.db_path_a
-                    else None
-                )
-                ts_b = (
-                    datetime.fromtimestamp(os.path.getmtime(app_state.db_path_b))
-                    if app_state.db_path_b
-                    else None
-                )
-            except:
-                ts_b = None
+            ts_a = getattr(ea, "mtime", None)
+            ts_b = getattr(eb, "mtime", None)
+            ctime_a = getattr(ea, "ctime", None)
+            ctime_b = getattr(eb, "ctime", None)
+            atime_a = getattr(ea, "atime", None)
+            atime_b = getattr(eb, "atime", None)
 
             latest_is_a = diff.ahead == "A"
             latest_is_b = diff.ahead == "B"
@@ -573,7 +607,7 @@ class DiffView:
                     return "Unknown"
                 return ts.strftime("%Y-%m-%d %H:%M:%S")
 
-            def create_header_content(title, title_color, ts, is_latest):
+            def create_header_content(title, title_color, ts, ctime, atime, is_latest):
                 items: list[Any] = [
                     ft.Text(
                         title,
@@ -582,9 +616,15 @@ class DiffView:
                         opacity=opacity,
                     ),
                     ft.Text(
-                        f"Modified: {ts.strftime('%Y-%m-%d %H:%M:%S') if ts else 'N/A'}",
-                        size=12,
-                        color=ft.Colors.GREY_400,
+                        f"Modified (mtime): {format_ts(ts)}",
+                        size=11,
+                        color=ft.Colors.GREY_300,
+                        opacity=opacity,
+                    ),
+                    ft.Text(
+                        f"Created: {format_ts(ctime)} • Accessed: {format_ts(atime)}",
+                        size=10,
+                        color=ft.Colors.GREY_500,
                         opacity=opacity,
                     ),
                 ]
@@ -597,7 +637,7 @@ class DiffView:
                                         ft.Icons.STAR, size=14, color=ft.Colors.WHITE
                                     ),
                                     ft.Text(
-                                        "LATEST",
+                                        "LATEST VERSION",
                                         size=10,
                                         weight=ft.FontWeight.BOLD,
                                         color=ft.Colors.WHITE,
@@ -605,8 +645,8 @@ class DiffView:
                                 ],
                                 tight=True,
                             ),
-                            bgcolor=ft.Colors.GREEN_600,
-                            padding=ft.Padding.symmetric(horizontal=8, vertical=4),
+                            bgcolor=ft.Colors.GREEN_700,
+                            padding=ft.Padding.symmetric(horizontal=8, vertical=3),
                             border_radius=4,
                             opacity=opacity,
                         )
@@ -625,9 +665,11 @@ class DiffView:
                         ft.Container(
                             content=ft.Column(
                                 create_header_content(
-                                    "Database A",
+                                    "Database A (Base)",
                                     ft.Colors.INDIGO_200,
                                     ts_a,
+                                    ctime_a,
+                                    atime_a,
                                     latest_is_a,
                                 )
                             ),
@@ -636,7 +678,12 @@ class DiffView:
                         ft.Container(
                             content=ft.Column(
                                 create_header_content(
-                                    "Database B", ft.Colors.TEAL_200, ts_b, latest_is_b
+                                    "Database B (Compare)",
+                                    ft.Colors.TEAL_200,
+                                    ts_b,
+                                    ctime_b,
+                                    atime_b,
+                                    latest_is_b,
                                 )
                             ),
                             expand=True,
@@ -650,7 +697,7 @@ class DiffView:
                 val_a = getattr(diff.entry_a, field)
                 val_b = getattr(diff.entry_b, field)
                 is_diff = field in diff.diffs
-                bg_color = ft.Colors.WHITE10 if is_diff else ft.Colors.TRANSPARENT
+                bg_color = ft.Colors.WHITE_10 if is_diff else ft.Colors.TRANSPARENT
 
                 if field == "password":
                     control_a = ft.TextField(
@@ -698,7 +745,7 @@ class DiffView:
                 self.details_container.controls.append(
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Keep Current (A)",
                                 icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
                                 tooltip="Keep Database A's values unchanged",
@@ -706,7 +753,7 @@ class DiffView:
                                     self.resolve_conflict, diff, "A"
                                 ),
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Accept Incoming (Copy B to A)",
                                 icon=ft.Icons.ARROW_CIRCLE_RIGHT_OUTLINED,
                                 tooltip="Copy values from Database B into Database A",
@@ -714,7 +761,7 @@ class DiffView:
                                     self.resolve_conflict, diff, "B"
                                 ),
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Keep Both",
                                 icon=ft.Icons.COPY_ALL,
                                 tooltip="Keep Database A version and import Database B as a new entry",
@@ -773,14 +820,14 @@ class DiffView:
                 self.details_container.controls.append(
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Keep in A",
                                 icon=ft.Icons.CHECK,
                                 on_click=lambda _: self.page.run_task(
                                     self.resolve_conflict, diff, "KEEP_A"
                                 ),
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Delete from A",
                                 icon=ft.Icons.DELETE,
                                 style=ft.ButtonStyle(color=ft.Colors.RED),
@@ -839,14 +886,14 @@ class DiffView:
                 self.details_container.controls.append(
                     ft.Row(
                         [
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Import to A",
                                 icon=ft.Icons.ADD,
                                 on_click=lambda _: self.page.run_task(
                                     self.resolve_conflict, diff, "IMPORT_B"
                                 ),
                             ),
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "Ignore",
                                 icon=ft.Icons.CLOSE,
                                 on_click=lambda _: self.page.run_task(
@@ -864,9 +911,16 @@ class DiffView:
             self.merger.apply_resolution(diff, action)
             self.resolved_uuids.add(diff.uuid)
             self.resolutions[diff.uuid] = action
+            self.resolution_timestamps[diff.uuid] = datetime.now()
             if action not in ("KEEP_A", "IGNORE_B"):
                 self.has_unsaved_changes = True
             self.refresh_list()
+            self.branch_graph.update_data(
+                self.diff_results,
+                self.resolved_uuids,
+                self.resolutions,
+                self.resolution_timestamps,
+            )
             self.show_details(diff)
 
             snack = ft.SnackBar(ft.Text(f"Resolved: {diff.title}"))
@@ -883,6 +937,7 @@ class DiffView:
 
     async def bulk_accept_incoming(self, e):
         count = 0
+        now = datetime.now()
         for diff in self.diff_results:
             if diff.uuid in self.resolved_uuids:
                 continue
@@ -890,16 +945,24 @@ class DiffView:
             if diff.state == "MODIFIED":
                 self.merger.apply_resolution(diff, "B")
                 self.resolved_uuids.add(diff.uuid)
+                self.resolution_timestamps[diff.uuid] = now
                 count += 1
             elif diff.state == "ONLY_IN_B":
                 self.merger.apply_resolution(diff, "IMPORT_B")
                 self.resolved_uuids.add(diff.uuid)
+                self.resolution_timestamps[diff.uuid] = now
                 count += 1
 
         if count > 0:
             self.has_unsaved_changes = True
 
         self.refresh_list()
+        self.branch_graph.update_data(
+            self.diff_results,
+            self.resolved_uuids,
+            self.resolutions,
+            self.resolution_timestamps,
+        )
         self.page.snack_bar = ft.SnackBar(ft.Text(f"Bulk Accepted {count} entries."))
         self.page.snack_bar.open = True
         self.page.update()
@@ -908,9 +971,16 @@ class DiffView:
         if diff.uuid in self.resolved_uuids:
             self.resolved_uuids.remove(diff.uuid)
             self.resolutions.pop(diff.uuid, None)
+            self.resolution_timestamps.pop(diff.uuid, None)
             # Note: Full undo of memory changes in Merger/PyKeePass is complex.
             # This "soft undo" allows the user to re-select a resolution in the UI.
             self.refresh_list()
+            self.branch_graph.update_data(
+                self.diff_results,
+                self.resolved_uuids,
+                self.resolutions,
+                self.resolution_timestamps,
+            )
             self.show_details(diff)
 
             snack = ft.SnackBar(
@@ -949,7 +1019,7 @@ class DiffView:
                 ),
                 actions=[
                     ft.TextButton("Cancel", on_click=self.close_dialog),
-                    ft.ElevatedButton(
+                    ft.Button(
                         "Discard & Exit",
                         style=ft.ButtonStyle(color=ft.Colors.RED_400),
                         on_click=self.confirm_discard_and_exit,
@@ -980,7 +1050,7 @@ class DiffView:
                             tooltip="Overview Dashboard",
                             on_click=lambda _: self.show_overview(),
                         ),
-                        ft.ElevatedButton(
+                        ft.Button(
                             "Save Merged A",
                             icon=ft.Icons.SAVE,
                             tooltip="Save merged changes into Database A file",

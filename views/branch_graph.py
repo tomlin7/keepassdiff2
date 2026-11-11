@@ -208,7 +208,7 @@ class BranchGraph(ft.Container):
                         size=11,
                         color=ft.Colors.GREY_300,
                     ),
-                    bgcolor=ft.Colors.WHITE10,
+                    bgcolor=ft.Colors.WHITE_10,
                     padding=ft.Padding.symmetric(horizontal=8, vertical=2),
                     border_radius=10,
                 ),

@@ -261,7 +261,7 @@ class WelcomeView:
                             self.loading,
                             self.error_text,
                             
-                            ft.ElevatedButton(
+                            ft.Button(
                                 "UNLOCK & COMPARE",
                                 icon=ft.Icons.COMPARE_ARROWS,
                                 style=ft.ButtonStyle(
